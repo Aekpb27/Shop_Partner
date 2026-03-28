@@ -8,32 +8,20 @@ import fs from 'fs';
 import multer from 'multer';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
-// 📝 Load environment variables from absolute path
+// 📝 Load environment variables
 const envPath = path.join(__dirname, '.env');
 dotenv.config({ path: envPath });
 
 const app = express();
 const PORT = process.env.PORT || 80;
 
-// 🔐 ตรวจสอบค่าการเชื่อมต่อ Supabase
-const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\s/g, ''); // ลบช่องว่างทั้งหมด
+// 🔐 Supabase Configuration
+const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\s/g, '');
 const supabaseKey = (process.env.SUPABASE_KEY || '').trim();
-
 let supabase: any;
 
-console.log('--------------------------------------------------');
-console.log('🔍 กำลังตรวจสอบการตั้งค่า...');
-console.log(`📍 SUPABASE_URL: ${supabaseUrl || 'ว่างเปล่า'}`);
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('⚠️ [ERROR] ข้อมูลการเชื่อมต่อ Supabase ไม่ครบถ้วนในไฟล์ .env');
-} else {
-  try {
-    supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('✅ [SUCCESS] สร้าง Supabase Client สำเร็จ');
-  } catch (err: any) {
-    console.error('❌ [ERROR] ไม่สามารถสร้าง Supabase Client ได้:', err.message);
-  }
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -41,11 +29,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(bodyParser.json());
 
-// 🏢 Serve Admin Dashboard & Assets
-app.use(express.static(path.join(__dirname, 'public'))); 
+// 1. 📁 Serve Backend Assets (Icons)
 app.use('/assets', express.static(path.join(__dirname, 'assets'))); 
 
-// 📸 API: Upload Image
+// 2. 📸 API: Upload Image
 app.post('/api/upload', upload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!supabase) throw new Error('Supabase not connected');
@@ -61,62 +48,74 @@ app.post('/api/upload', upload.single('image'), async (req: Request, res: Respon
   }
 });
 
-// 🐉 API: Products
-app.get('/api/products', async (req: Request, res: Response) => {
+// 3. 🐉 API: Data Management
+app.get('/api/:table', async (req: Request, res: Response) => {
     if (!supabase) return res.json([]);
-    const { data, error } = await supabase.from('products').select('*');
+    const { table } = req.params;
+    let query = supabase.from(table).select('*');
+    
+    // ✨ เพิ่มระบบการเรียงลำดับ
+    if (table === 'orders') query = query.order('timestamp', { ascending: false });
+    if (table === 'categories') query = query.order('order_index', { ascending: true });
+    if (table === 'products') query = query.order('id', { ascending: true });
+    
+    const { data, error } = await query;
     res.json(error ? [] : data);
 });
-app.post('/api/products', async (req: Request, res: Response) => {
-    if (!supabase) return res.status(500).json({ error: 'Supabase not connected' });
-    const cleaned = (Array.isArray(req.body) ? req.body : [req.body]).map((p: any) => { 
-      const { partnerId, ...rest } = p; 
-      return { ...rest, partnerIds: p.partnerIds || (partnerId ? [partnerId] : []) }; 
-    });
-    const { error } = await supabase.from('products').upsert(cleaned, { onConflict: 'id' });
+
+app.post('/api/:table', async (req: Request, res: Response) => {
+    if (!supabase) return res.status(500).json({ error: 'X' });
+    const { table } = req.params;
+    let payload = req.body;
+    if (table === 'products') {
+        payload = (Array.isArray(payload) ? payload : [payload]).map((p: any) => {
+            const { partnerId, ...rest } = p;
+            return { ...rest, partnerIds: p.partnerIds || (partnerId ? [partnerId] : []) };
+        });
+    }
+    const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' });
     res.json({ success: !error, error: error?.message });
 });
-app.delete('/api/products/:id', async (req: Request, res: Response) => {
-    if (!supabase) return res.status(500).json({ error: 'Supabase not connected' });
-    const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+
+app.delete('/api/:table/:id', async (req: Request, res: Response) => {
+    if (!supabase) return res.status(500).json({ error: 'X' });
+    const { error } = await supabase.from(req.params.table).delete().eq('id', req.params.id);
     res.json({ success: !error });
 });
 
-// APIs (Partners, Categories, Orders)
-app.get('/api/partners', async (req: Request, res: Response) => { if(!supabase) return res.json([]); const { data } = await supabase.from('partners').select('*'); res.json(data); });
-app.post('/api/partners', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('partners').upsert(req.body, { onConflict: 'id' }); res.json({ success: !error }); });
-app.delete('/api/partners/:id', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('partners').delete().eq('id', req.params.id); res.json({ success: !error }); });
-app.get('/api/categories', async (req: Request, res: Response) => { if(!supabase) return res.json([]); const { data } = await supabase.from('categories').select('*'); res.json(data); });
-app.post('/api/categories', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('categories').upsert(req.body, { onConflict: 'id' }); res.json({ success: !error }); });
-app.delete('/api/categories/:id', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('categories').delete().eq('id', req.params.id); res.json({ success: !error }); });
-app.get('/api/orders', async (req: Request, res: Response) => { if(!supabase) return res.json([]); const { data } = await supabase.from('orders').select('*').order('timestamp', { ascending: false }); res.json(data); });
-app.post('/api/orders', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('orders').insert([req.body]); res.json({ success: !error }); });
-app.delete('/api/orders/:id', async (req: Request, res: Response) => { if(!supabase) return res.status(500).json({error:'X'}); const { error } = await supabase.from('orders').delete().eq('id', req.params.id); res.json({ success: !error }); });
-
 app.post('/api/login', async (req: Request, res: Response) => {
-    if (!supabase) return res.status(500).json({ error: 'Supabase not connected' });
+    if (!supabase) return res.status(500).json({ error: 'X' });
     const { data, error } = await supabase.auth.signInWithPassword(req.body);
     if (error) return res.status(401).json({ error: error.message });
     res.json({ success: true, user: data.user });
 });
 
-// 🎯 Proxy to Frontend (Vite)
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/', createProxyMiddleware({
-    target: 'http://localhost:5173',
-    changeOrigin: true,
-    filter: (pathname) => !pathname.startsWith('/api') && !pathname.startsWith('/assets') && !pathname.includes('.')
-  }));
-}
-
-// Fallback for Admin UI
+// 4. 🏰 Admin Dashboard UI
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+// บังคับใช้ static สำหรับไฟล์อื่นๆ ใน public (เช่น ถ้ามี css/js แยก)
+app.use('/admin', express.static(path.join(__dirname, 'public')));
+
+// 5. 🎯 Reverse Proxy to Frontend (Vite)
+// ส่งต่อทุกอย่างที่ไม่ใช่ /api, /assets, /admin ไปที่ Vite พอร์ต 5173
+app.use('/', createProxyMiddleware({
+  target: 'http://localhost:5173',
+  changeOrigin: true,
+  ws: true, // รองรับ WebSocket สำหรับระบบ Hot Reload ของ Vite
+  logLevel: 'silent',
+  filter: (pathname) => {
+    return !pathname.startsWith('/api') && 
+           !pathname.startsWith('/assets') && 
+           !pathname.startsWith('/admin');
+  }
+}));
 
 // 🚀 Start Server
-app.listen(PORT, async () => {
-  console.log(`🐉 Backend running on http://localhost:${PORT}`);
-  console.log(`👉 Admin Dashboard: http://localhost:${PORT}/admin`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log('--------------------------------------------------');
+  console.log(`🐉 Backend Gateway is PUBLICLY AVAILABLE! 🔥`);
+  console.log(`🏠 Access via your Local IP (e.g. http://192.168.1.50)`);
+  console.log(`⚙️  Admin Dashboard: http://localhost/admin`);
   console.log('--------------------------------------------------');
 });
