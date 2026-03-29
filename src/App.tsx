@@ -44,12 +44,31 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isModalClosing, setIsModalClosing] = useState(false);
   const [tempSweetness, setTempSweetness] = useState('100%');
+  const [showFab, setShowFab] = useState(false); // ✨ State สำหรับปุ่ม FAB
 
   // ✨ State สำหรับ Flying Item
   const [flyingItem, setFlyingItem] = useState<{x: number, y: number, targetX: number, targetY: number, emoji: string} | null>(null);
 
   const animTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ✨ ฟังก์ชันจัดการการแจ้งเตือน (Toast) ให้แสดงผลค้างไว้ 3 วินาที
+  const showNotification = (msg: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3000); // 👈 แสดงค้างไว้ 3 วินาที
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // ถ้าเลื่อนลงมาเกิน 100px ให้โชว์ FAB
+      setShowFab(window.scrollY > 100);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -137,9 +156,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     }, 10);
 
     closeProductModal();
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast(`เพิ่ม ${activeProduct.name} แล้ว!`);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 2000);
+    showNotification(`เพิ่ม ${activeProduct.name} แล้ว!`);
   };
 
   const updateQuantity = (id: number, sweetness: string, delta: number) => {
@@ -148,12 +165,56 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     ).filter(item => item.quantity > 0));
   };
 
+  // 🚀 ฟังก์ชันยืนยันการสั่งซื้อ (บันทึกลง Supabase โดยตรง)
+  const handleCheckout = async () => {
+    if (cart.length === 0 || !partnerId) return;
+
+    // เตรียมข้อมูลออเดอร์
+    const orderData = {
+      id: Math.floor(Date.now() + Math.random() * 1000),
+      partnerId: partnerId,
+      items: cart.map(i => ({ 
+        name: i.name, 
+        quantity: i.quantity, 
+        sweetness: i.sweetness, 
+        price: i.price,
+        imageUrl: i.imageUrl, // 👈 เพิ่มรูปภาพ
+        emoji: i.emoji        // 👈 เพิ่มอีโมจิ (กรณีไม่มีรูป)
+      })),
+      total: cartTotal,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      // บันทึกลงตาราง 'orders' ใน Supabase
+      const { error } = await supabase
+        .from('orders')
+        .insert([orderData]);
+
+      if (!error) {
+        setCart([]); // ล้างตะกร้า
+        showNotification('✅ สั่งซื้อสำเร็จ! ออเดอร์ถูกส่งแล้ว'); // ใช้ระบบแจ้งเตือนใหม่
+        closeCart();
+      } else {
+        console.error('Supabase Error:', error);
+        showNotification('❌ เกิดข้อผิดพลาด: ' + error.message);
+      }
+    } catch (e) {
+      console.error('System Error:', e);
+      showNotification('❌ ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
+    }
+  };
+
   const cartTotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
   const filteredProducts = selectedCategory === 'All' ? products : products.filter(p => p.category === selectedCategory);
 
   return (
     <div className={`app ${isMobile ? 'mobile-view' : 'desktop-view'}`}>
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <div className="toast">
+          {toast}
+        </div>
+      )}
       
       {/* 🚀 Flying Item Overlay */}
       {flyingItem && (
@@ -207,6 +268,12 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
           </div>
         ))}
       </main>
+
+      {/* 🛒 Floating Action Button (FAB) */}
+      <button className={`cart-fab ${showFab ? 'visible' : ''}`} onClick={openCart}>
+        <img src="/shopping.png" className="fab-img" alt="cart" />
+        <div className="fab-badge">{cart.reduce((a, b) => a + b.quantity, 0)}</div>
+      </button>
 
       {/* ✨ Dialog เลือกความหวาน พร้อมอนิเมชั่น เข้า-ออก */}
       {activeProduct && (
@@ -275,7 +342,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
                     <span style={{fontWeight:700, color:'#64748b'}}>ยอดชำระทั้งหมด</span>
                     <span className="summary-value">฿{cartTotal}</span>
                   </div>
-                  <button className="checkout-button">ยืนยันรายการสั่งซื้อ</button>
+                  <button className="checkout-button" onClick={handleCheckout}>ยืนยันรายการสั่งซื้อ</button>
                 </div>
               </div>
             )}
@@ -283,13 +350,6 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
         </div>
       )}
       
-      <div className="footer-links">
-        <div style={{display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap'}}>
-           {allPartners.map(p => (
-             <Link key={p.id} to={`/store/${p.id}`} style={{fontSize: '0.75rem', color: '#64748b', textDecoration: 'none', fontWeight: 600}}>• {p.name}</Link>
-           ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -314,7 +374,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/store/:partnerId" element={<StorePage allPartners={allPartners} />} />
-        <Route path="/" element={<Navigate to={`/store/${allPartners[0]?.id || 'dragonz'}`} replace />} />
+        {/* ยกเลิกการ Redirect อัตโนมัติ (ตามคำสั่ง) */}
+        <Route path="/" element={<div className="loading-screen">404 Not Found - กรุณาระบุรหัสร้านค้า</div>} />
       </Routes>
     </BrowserRouter>
   );

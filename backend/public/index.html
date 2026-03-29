@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DRAGONZ | ระบบจัดการหลังบ้าน</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Anuphan:wght@400;500;600;700&display=swap');
         :root { --primary: #ef4444; --dark: #0f172a; --slate-50: #f8fafc; --slate-200: #e2e8f0; --slate-500: #64748b; --white: #ffffff; --green: #10b981; --font-main: 'Anuphan', 'Plus Jakarta Sans', sans-serif; }
@@ -13,118 +15,173 @@
         *::-webkit-scrollbar { display: none; }
         body { background: var(--slate-50); color: var(--dark); display: flex; height: 100vh; overflow: hidden; }
         
-        /* 🔒 Login Page */
-        #login-overlay { position: fixed; inset: 0; background: var(--dark); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .login-card { background: white; padding: 45px; border-radius: 35px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .login-logo { width: 90px; height: 90px; margin-bottom: 25px; object-fit: contain; }
+        /* 🔒 Ultra Minimal Login Page */
+        #login-overlay { position: fixed; inset: 0; background: #ffffff; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden; }
+        .orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.4; z-index: 0; animation: slowFloat 30s infinite alternate ease-in-out; }
+        .orb-1 { width: 800px; height: 800px; background: #fee2e2; top: -300px; left: -200px; }
+        .orb-2 { width: 700px; height: 700px; background: #e0f2fe; bottom: -200px; right: -100px; animation-duration: 40s; }
+        @keyframes slowFloat { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(100px, 100px) scale(1.1); } }
+        @keyframes revealDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes revealUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes simpleFade { from { opacity: 0; } to { opacity: 1; } }
+        .login-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(30px); padding: 60px 45px; border-radius: 60px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 30px 100px rgba(0,0,0,0.03); z-index: 10; position: relative; }
+        .entry-1 { animation: revealDown 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .entry-2 { opacity: 0; animation: simpleFade 1s 0.3s forwards; }
+        .entry-3 { opacity: 0; animation: revealUp 1s 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .entry-4 { opacity: 0; animation: revealUp 1s 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .login-logo { width: 90px; height: 90px; margin-bottom: 35px; object-fit: contain; filter: grayscale(0.2); }
+        .login-card h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 45px; color: var(--dark); letter-spacing: -1px; }
+        .login-card input { background: rgba(248, 250, 252, 0.8); border: 1px solid transparent; margin-bottom: 12px; padding: 18px 25px; border-radius: 22px; font-size: 0.95rem; width: 100%; transition: all 0.4s; font-weight: 600; }
+        .login-card input:focus { background: white; border-color: var(--slate-200); box-shadow: 0 10px 30px rgba(0,0,0,0.04); transform: translateY(-2px); }
         
-        /* 🏰 Sidebar */
+        /* 🏰 Sidebar Styling */
         .sidebar { width: 280px; background: var(--white); padding: 40px 20px; display: flex; flex-direction: column; border-right: 1px solid var(--slate-200); box-shadow: 10px 0 30px rgba(0,0,0,0.02); z-index: 100; flex-shrink: 0; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
-        .sidebar.collapsed { width: 85px; padding: 40px 10px; }
+        .sidebar.collapsed { width: 85px; padding: 40px 10px; overflow: visible; }
+        
+        .sidebar.collapsed .logo span, 
+        .sidebar.collapsed .nav-btn span, 
+        .sidebar.collapsed .status-container span:not(.status-dot),
+        .sidebar.collapsed .logout-btn .btn span { display: none !important; }
+        
+        .sidebar.collapsed .status-container,
+        .sidebar.collapsed .logout-btn .btn { justify-content: center; gap: 0; padding: 10px 0; }
         
         .logo { font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-bottom: 45px; text-align: center; letter-spacing: -1.5px; display: flex; align-items: center; justify-content: center; gap: 12px; overflow: hidden; }
-        .logo-img { width: 45px; height: 45px; object-fit: contain; }
-        .sidebar.collapsed .logo span { display: none; }
-        .sidebar.collapsed .logo-img { width: 35px; height: 35px; }
-
+        .logo-img { width: 45px; height: 45px; object-fit: contain; flex-shrink: 0; }
         .nav-btn { padding: 16px 20px; border-radius: 15px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-weight: 600; color: var(--slate-500); margin-bottom: 8px; transition: 0.3s; display: flex; align-items: center; gap: 15px; font-size: 1rem; white-space: nowrap; overflow: hidden; }
         .nav-btn:hover { background: var(--slate-50); color: var(--dark); }
         .nav-btn.active { background: #fff1f2; color: var(--primary); border: 1px solid rgba(239, 68, 68, 0.1); }
+        .menu-icon { width: 26px; height: 26px; object-fit: contain; transition: 0.3s; flex-shrink: 0; }
         
-        .menu-icon { width: 26px; height: 26px; object-fit: contain; transition: 0.3s; filter: none !important; }
-        .nav-btn:hover .menu-icon { transform: scale(1.1); }
-        
-        /* 🚪 Logout Styling */
-        .logout-btn { margin-top: auto; padding-top: 25px; border-top: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 15px; }
-        .logout-icon { width: 22px; height: 22px; object-fit: contain; margin-right: 10px; transition: 0.3s; } 
-        .sidebar.collapsed .nav-btn { justify-content: center; padding: 16px 0; }
-        .sidebar.collapsed .nav-btn span { display: none; }
-        .sidebar.collapsed .logout-icon { margin-right: 0; width: 24px; height: 24px; }
-        .sidebar.collapsed .logout-text { display: none !important; }
-
-        .sidebar-toggle { position: absolute; top: 15px; right: -15px; width: 30px; height: 30px; background: var(--white); border: 1px solid var(--slate-200); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); z-index: 110; transition: 0.3s; }
-        .sidebar-toggle:hover { background: var(--primary); color: white; }
+        /* 🔘 Toggle Button (Half-Circle Position) */
+        .sidebar-toggle { 
+            position: absolute; top: 25px; right: -15px; width: 30px; height: 30px; 
+            background: var(--white); border: 1px solid var(--slate-200); border-radius: 50%; 
+            cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08); z-index: 110; transition: 0.4s; 
+            font-size: 1.2rem; font-weight: 800; color: var(--slate-500);
+        }
+        .sidebar-toggle:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.1); }
         .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); }
 
+        /* 📟 Sidebar Footer & Log Control */
+        .logout-btn { margin-top: auto; padding-top: 25px; border-top: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 10px; }
+        .logout-icon { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; } 
+
+        .status-container { 
+            display: flex; align-items: center; gap: 12px; cursor: pointer; 
+            font-weight: 700; font-size: 0.75rem; color: #64748b; 
+            padding: 8px; border-radius: 12px; transition: 0.2s; 
+        }
+        .status-container:hover { background: var(--slate-50); }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; position: relative; transition: background 0.3s; }
+        .status-dot::after { 
+            content: ''; position: absolute; inset: -3px; border-radius: 50%; 
+            background: inherit; opacity: 0.3; animation: pulse 2s infinite; 
+        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(2.5); opacity: 0; } }
+        
+        #log-console { 
+            background: #020617; color: #94a3b8; padding: 15px; border-radius: 15px; 
+            font-size: 0.65rem; max-height: 120px; overflow-y: auto; margin-bottom: 10px;
+            border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .sidebar.collapsed #log-console { display: none !important; }
+
+        /* 🏛️ Main Content Area */
         .main { flex: 1; padding: 40px; overflow-y: auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 15px; }
         .header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1.5px; }
-        
         .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
         .item-card { background: var(--white); padding: 22px; border-radius: 24px; border: 1px solid var(--slate-200); position: relative; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; gap: 10px; }
         .item-card:hover { transform: translateY(-8px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); }
         .item-card:active { transform: scale(0.98); }
-        
         .btn { padding: 12px 24px; border-radius: 14px; font-weight: 700; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; white-space: nowrap; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-dark { background: var(--dark); color: white; }
         .btn-del { color: #ef4444; background: #fff1f2; }
 
+        /* 📦 Modals Styling */
         @keyframes modalPop { 0% { opacity: 0; transform: scale(0.8) translateY(40px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes modalHide { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.8) translateY(40px); } }
-        @keyframes overlayFade { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(8px); } }
-        @keyframes overlayHide { from { opacity: 1; backdrop-filter: blur(8px); } to { opacity: 0; backdrop-filter: blur(0px); } }
-
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 15px; animation: overlayFade 0.3s ease-out forwards; }
-        .modal-overlay.closing { animation: overlayHide 0.3s ease-in forwards; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 15px; }
         .modal-card { background: white; padding: 35px; border-radius: 32px; width: 550px; max-width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .modal-card.compact { width: 420px; }
         .modal-card.closing { animation: modalHide 0.3s ease-in forwards; }
-        
-        .modal-card h2 { font-weight: 800; margin-bottom: 25px; font-size: 1.8rem; letter-spacing: -1px; }
         label { font-size: 0.85rem; font-weight: 700; color: var(--slate-500); margin-top: 20px; display: block; }
-        input, select { width: 100%; padding: 14px; margin-top: 8px; border: 1.5px solid var(--slate-200); border-radius: 15px; background: var(--slate-50); font-weight: 600; font-size: 1rem; transition: 0.2s; }
-        input:focus { border-color: var(--primary); background: white; }
-
-        .partner-pill { padding: 10px 18px; border-radius: 100px; background: var(--slate-50); border: 1.5px solid var(--slate-200); cursor: pointer; font-size: 0.8rem; font-weight: 700; transition: 0.2s; color: var(--slate-500); }
-        .partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-
+        input, select { width: 100%; padding: 14px; margin-top: 8px; border: 1.5px solid var(--slate-200); border-radius: 15px; background: var(--slate-50); font-weight: 600; font-size: 1rem; }
+        .partner-pill { padding: 10px 18px; border-radius: 100px; background: var(--slate-50); border: 1.5px solid var(--slate-200); cursor: pointer; font-size: 0.8rem; font-weight: 700; margin: 4px; display: inline-block; }
+        .partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); }
         .preview-box { width: 110px; height: 110px; background: var(--slate-50); border-radius: 20px; margin: 0 auto 25px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 3rem; border: 2px dashed var(--slate-200); }
         .preview-box img { width: 100%; height: 100%; object-fit: cover; }
-        
         .modal-footer { margin-top: 35px; display: grid; grid-template-columns: 1fr 1.5fr; gap: 15px; }
 
-        /* ✨ Smart Status Indicator */
-        .status-container { display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.3s; font-weight: 700; font-size: 0.75rem; color: #64748b; margin-bottom: 10px; }
-        .sidebar.collapsed .status-container span:last-child { display: none; }
-        .sidebar.collapsed .status-container { justify-content: center; }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.1); flex-shrink: 0; }
-        
         #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px; }
         .toast { background: white; padding: 16px 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; font-weight: 700; animation: modalPop 0.4s ease-out forwards; border: 1px solid var(--slate-200); }
-        @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 🔔 Right Side Notification */
+        #notification-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 15px; width: 350px; }
+        .order-alert { 
+            background: white; 
+            color: var(--dark); padding: 25px; border-radius: 30px; 
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1); 
+            animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            position: relative; overflow: hidden;
+            border: 1px solid var(--slate-200);
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .order-alert h4 { color: var(--primary); margin-bottom: 8px; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .order-alert p { font-size: 0.9rem; color: var(--slate-500); font-weight: 600; }
+        .order-alert .close-alert { position: absolute; top: 15px; right: 20px; cursor: pointer; opacity: 0.4; color: var(--dark); font-size: 1.2rem; z-index: 10; }
+        .order-alert .close-alert:hover { opacity: 1; }
+
+        /* ⏳ Progress Timer Bar */
+        .timer-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: var(--slate-50); }
+        .timer-bar { height: 100%; background: var(--primary); width: 100%; animation: timerRun 10s linear forwards; }
+        @keyframes timerRun { from { width: 100%; } to { width: 0%; } }
 
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; height: auto; padding: 12px 15px; flex-direction: row; border-right: none; border-bottom: 1px solid var(--slate-200); overflow-x: auto; position: sticky; top: 0; background: var(--white); }
-            .sidebar.collapsed { width: 100%; padding: 12px 15px; }
+            .sidebar.collapsed { width: 100%; padding: 12px 15px; overflow: visible; }
             .sidebar-toggle { display: none; }
             .logo { margin-bottom: 0; margin-right: 15px; font-size: 1.3rem; }
             .logo span { display: none; }
             .nav-btn { padding: 10px 16px; font-size: 0.85rem; margin-bottom: 0; width: auto; gap: 8px; }
             .nav-btn span { display: inline; }
-            .sidebar.collapsed .nav-btn span { display: inline; }
             .logout-btn { display: none; }
             .modal-card { width: 100% !important; border-radius: 24px; padding: 25px; }
             .modal-footer { grid-template-columns: 1fr; display: flex; flex-direction: column-reverse; }
         }
-
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div id="toast-container"></div>
+    <div id="notification-container"></div>
 
+    <!-- 🔒 Login Page -->
     <div id="login-overlay" class="hidden">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
         <div class="login-card">
-            <img src="/assets/logo.png" class="login-logo">
-            <h2 style="font-weight: 800; margin-bottom: 30px; font-size: 1.8rem; letter-spacing: -1px;">Dragonz Admin</h2>
-            <input type="email" id="login-email" placeholder="อีเมลแอดมิน" value="admin@dragonz.com" style="margin-bottom: 15px;">
-            <input type="password" id="login-password" placeholder="รหัสผ่าน" style="margin-bottom: 30px;">
-            <button class="btn btn-dark" style="width:100%; padding: 18px;" onclick="handleLogin()">เข้าสู่ระบบ</button>
+            <div class="entry-1"><img src="/assets/logo.png" class="login-logo"></div>
+            <h2 class="entry-2">Dragonz Admin</h2>
+            <div class="entry-3">
+                <input type="email" id="login-email" placeholder="อีเมลแอดมิน">
+                <div style="position: relative; width: 100%; margin-bottom: 12px;">
+                    <input type="password" id="login-password" placeholder="รหัสผ่าน" style="padding-right: 55px; margin-bottom: 0;">
+                    <span id="toggle-eye" onclick="togglePass()" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 1.2rem; opacity: 0.4;">👁️</span>
+                </div>
+            </div>
+            <div class="entry-4"><button class="btn btn-dark" style="width:100%; padding: 20px; justify-content: center; border-radius: 22px;" onclick="handleLogin()">เข้าสู่ระบบจัดการ</button></div>
         </div>
     </div>
 
+    <!-- 📦 CRUD Modal -->
     <div id="item-modal" class="modal-overlay hidden">
         <div class="modal-card">
             <h2 id="modal-title">แก้ไขข้อมูล</h2>
@@ -136,10 +193,29 @@
         </div>
     </div>
 
+    <!-- 🚪 Logout Confirmation Modal -->
+    <div id="logout-modal" class="modal-overlay hidden">
+        <div class="modal-card compact">
+            <h2>ออกจากระบบ?</h2>
+            <p style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px;">ต้องการออกจากระบบใช่หรือไม่?</p>
+            <div class="modal-footer">
+                <button class="btn btn-dark" style="justify-content: center;" onclick="closeLogoutModal()">ยกเลิก</button>
+                <button class="btn btn-primary" style="justify-content: center;" onclick="confirmLogout()">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✨ QR Code Modal -->
+    <div id="qr-modal" class="modal-overlay hidden" onclick="closeQrModal()">
+        <div id="qr-modal-content"></div>
+    </div>
+
+    <!-- 🏰 UI Structure -->
     <div id="dashboard-ui" class="hidden" style="display: flex; width: 100%; height: 100%;">
         <div class="sidebar" id="sidebar">
             <button class="sidebar-toggle" onclick="toggleSidebar()">‹</button>
             <div class="logo"><img src="/assets/logo.png" class="logo-img"> <span>DRAGONZ</span></div>
+            
             <button class="nav-btn" data-tab="orders" onclick="showTab('orders')">
                 <img src="/assets/orders.png" class="menu-icon"> <span>รายการสั่งซื้อ</span>
             </button>
@@ -158,39 +234,105 @@
                     <span id="status-dot" class="status-dot" style="background: #cbd5e1;"></span>
                     <span>Log การเชื่อมต่อ</span>
                 </div>
-                <div id="log-console" class="hidden" style="background: #1e293b; color: #94a3b8; padding: 15px; border-radius: 15px; font-size: 0.65rem; max-height: 120px; overflow-y: auto; margin-bottom: 5px;">
+                <div id="log-console" class="hidden">
                     <div id="log-content"></div>
                 </div>
                 <button class="btn" style="width: 100%; color: var(--slate-500); background: var(--slate-50); justify-content: center; padding: 12px 0;" onclick="logout()">
-                    <img src="/assets/logout.png" class="logout-icon">
-                    <span class="logout-text">ออกจากระบบ</span>
+                    <img src="/assets/logout.png" style="width:20px; margin-right:10px;"> <span>ออกจากระบบ</span>
                 </button>
             </div>
         </div>
 
         <div class="main">
             <div id="section-orders" class="hidden">
-                <div class="header"><h1>รายการสั่งซื้อ</h1><button class="btn btn-dark" onclick="loadData()">รีเฟรช</button></div>
+                <div class="header">
+                    <h1>รายการสั่งซื้อ</h1>
+                    <button class="btn btn-dark" onclick="loadData()">รีเฟรชข้อมูล</button>
+                </div>
+
+                <!-- 🔍 Filter & Stats Bar -->
+                <div style="background: white; padding: 25px; border-radius: 30px; margin-bottom: 30px; border: 1px solid var(--slate-200); box-shadow: 0 10px 30px rgba(0,0,0,0.02);">
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามชื่อร้านค้า</label>
+                            <select id="filter-partner" onchange="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                                <option value="">แสดงทุกร้านค้า (All Partners)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">ค้นหารหัสออเดอร์</label>
+                            <input type="text" id="search-order" placeholder="พิมพ์เลขรหัสที่ต้องการ..." oninput="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามวันที่</label>
+                            <input type="date" id="filter-date" onchange="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                        </div>
+                        <div style="display: flex; align-items: flex-end; height: 50px;">
+                            <button class="btn btn-del" onclick="resetFilters()" style="height: 100%; padding: 0 20px; font-size: 0.8rem; border-radius: 15px;">ล้างตัวกรอง</button>
+                        </div>
+                        <div id="order-stats-container" style="display: flex; gap: 15px; flex-shrink: 0;">
+                            <!-- Stats will be injected here -->
+                        </div>
+                    </div>
+                </div>
+
                 <div id="orders-list"></div>
             </div>
             <div id="section-products" class="hidden">
-                <div class="header"><h1>สินค้าทั้งหมด</h1><button class="btn btn-primary" onclick="openModal('products')">+ เพิ่มสินค้า</button></div>
-                <div id="products-list"></div>
+                <div class="header">
+                    <h1>สินค้าทั้งหมด</h1>
+                    <button class="btn btn-primary" onclick="openModal('products')">+ เพิ่มสินค้า</button>
+                </div>
+
+                <!-- 🔍 Product Filter Bar -->
+                <div style="background: white; padding: 20px; border-radius: 25px; margin-bottom: 25px; border: 1px solid var(--slate-200); display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">กรองตามหมวดหมู่</label>
+                        <select id="filter-product-category" onchange="renderAll()" style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
+                            <option value="">แสดงทุกหมวดหมู่</option>
+                        </select>
+                    </div>
+                    <div style="flex: 2; min-width: 250px;">
+                        <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">ค้นหาชื่อสินค้า</label>
+                        <input type="text" id="search-product-name" placeholder="พิมพ์ชื่อสินค้าที่ต้องการ..." oninput="renderAll()" style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
+                    </div>
+                    <button class="btn btn-del" onclick="resetProductFilters()" style="height: 45px; padding: 0 15px; font-size: 0.75rem; border-radius: 12px;">ล้างค่า</button>
+                </div>
+
+                <div id="products-list" class="item-grid"></div>
             </div>
             <div id="section-partners" class="hidden">
                 <div class="header"><h1>ร้านค้าพาร์ทเนอร์</h1><button class="btn btn-primary" onclick="openModal('partners')">+ เพิ่มร้านใหม่</button></div>
-                <div id="partners-list"></div>
+                <div id="partners-list" class="item-grid"></div>
             </div>
             <div id="section-categories" class="hidden">
                 <div class="header"><h1>หมวดหมู่สินค้า</h1><button class="btn btn-primary" onclick="openModal('categories')">+ เพิ่มหมวดหมู่</button></div>
-                <div class="item-grid" id="categories-list"></div>
+                <div id="categories-list" class="item-grid"></div>
             </div>
         </div>
     </div>
 
     <script>
+        // 🔐 Supabase Configuration (Realtime)
+        const SB_URL = 'https://mpqasqznmxejmaxcpolr.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wcWFzcXpubXhlam1heGNwb2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MTgyNTgsImV4cCI6MjA4NTE5NDI1OH0.nVE8IWiCikPO4s7UU36HgSqfddtr_YAeWnAAWUZAiyE';
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
         let db = { products: [], partners: [], categories: [], orders: [] };
         let activeModal = { type: '', id: null, data: {} };
+        
+        // 🔊 Audio Management
+        const notificationAudio = new Audio('/assets/alert.mp3');
+        notificationAudio.loop = true;
+        let activeAlertCount = 0;
+
+        // Unlock Audio for Browser Policy
+        document.addEventListener('click', () => {
+            notificationAudio.play().then(() => {
+                notificationAudio.pause();
+                console.log("Audio Unlocked");
+            }).catch(e => {});
+        }, { once: true });
 
         function showToast(m, t = 'success') {
             const c = document.getElementById('toast-container');
@@ -198,7 +340,67 @@
             el.className = `toast ${t}`;
             el.innerHTML = `<span>${t === 'success' ? '✅' : '❌'}</span> <span>${m}</span>`;
             c.appendChild(el);
-            setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3000);
+            setTimeout(() => { 
+                if (el.parentElement) {
+                    el.style.opacity = '0'; setTimeout(() => el.remove(), 400); 
+                }
+            }, 3000);
+        }
+
+        // 🔔 Function to show floating order alert
+        function showOrderAlert(order) {
+            const container = document.getElementById('notification-container');
+            const alertEl = document.createElement('div');
+            alertEl.className = 'order-alert';
+            
+            // 🔊 Start sound if it's the first alert
+            activeAlertCount++;
+            notificationAudio.play().catch(e => {
+                console.log("Audio blocked - interaction needed");
+                showToast("มีออเดอร์ใหม่! (คลิกที่หน้าจอเพื่อเปิดเสียง)", "info");
+            });
+
+            // หาชื่อร้านแทน ID
+            const pId = order.partnerId || order.partner_id;
+            const partner = db.partners.find(p => p.id == pId);
+            const partnerDisplay = partner ? partner.name : (pId || 'ไม่ทราบชื่อร้าน');
+
+            alertEl.innerHTML = `
+                <div class="close-alert">✕</div>
+                <h4>🔔 มีออเดอร์ใหม่เข้า!</h4>
+                <p>ออเดอร์ #${order.id}</p>
+                <p>จากร้าน: <strong>${partnerDisplay}</strong></p>
+                <p style="font-weight: 800; margin-top: 5px; color: var(--primary);">ยอดรวม: ฿${(order.total || 0).toLocaleString()}</p>
+                <div class="timer-bar-container">
+                    <div class="timer-bar"></div>
+                </div>
+            `;
+            container.appendChild(alertEl);
+
+            // 🛑 Function to stop sound and remove element
+            const stopAndRemove = () => {
+                if (alertEl.dataset.stopped) return;
+                alertEl.dataset.stopped = "true";
+                
+                activeAlertCount--;
+                if (activeAlertCount <= 0) {
+                    activeAlertCount = 0;
+                    notificationAudio.pause();
+                    notificationAudio.currentTime = 0;
+                }
+
+                if (alertEl.parentElement) {
+                    alertEl.style.opacity = '0';
+                    alertEl.style.transform = 'translateX(50px)';
+                    setTimeout(() => alertEl.remove(), 500);
+                }
+            };
+
+            // คลิกปิดเพื่อหยุดเสียงและปิดแจ้งเตือน
+            alertEl.querySelector('.close-alert').onclick = stopAndRemove;
+            
+            // Auto remove after 10 seconds (and stop sound)
+            setTimeout(stopAndRemove, 10000);
         }
 
         function toggleSidebar() {
@@ -210,12 +412,29 @@
         async function handleLogin() { 
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-            const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email, password})});
-            const data = await res.json();
-            if (data.success) { localStorage.setItem('dragonz_session', 'true'); location.reload(); } else showToast("อีเมลหรือรหัสผ่านไม่ถูกต้อง", "error");
+            if (!email || !password) { showToast("กรุณากรอกข้อมูลให้ครบ", "error"); return; }
+            try {
+                const res = await fetch('/api/login', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({email, password})
+                });
+                const data = await res.json();
+                if (data.success) { localStorage.setItem('dragonz_session', 'true'); location.reload(); }
+                else { showToast(data.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง", "error"); }
+            } catch (e) { showToast("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", "error"); }
         }
 
-        function logout() { localStorage.clear(); location.reload(); }
+        function logout() { document.getElementById('logout-modal').classList.remove('hidden'); }
+        function closeLogoutModal() { document.getElementById('logout-modal').classList.add('hidden'); }
+        function confirmLogout() { localStorage.clear(); location.reload(); }
+        
+        function togglePass() {
+            const passInput = document.getElementById('login-password');
+            const eyeIcon = document.getElementById('toggle-eye');
+            if (passInput.type === 'password') { passInput.type = 'text'; eyeIcon.innerText = '🫣'; }
+            else { passInput.type = 'password'; eyeIcon.innerText = '👁️'; }
+        }
 
         function addLog(msg, type = 'info') {
             const el = document.getElementById('log-content');
@@ -229,26 +448,88 @@
             if (localStorage.getItem('dragonz_session')) { 
                 document.getElementById('dashboard-ui').classList.remove('hidden'); 
                 if (localStorage.getItem('sidebar_collapsed') === 'true') document.getElementById('sidebar').classList.add('collapsed');
-                const lastTab = localStorage.getItem('active_tab') || 'orders';
-                loadData().then(() => showTab(lastTab)); 
-            } else {
-                document.getElementById('login-overlay').classList.remove('hidden');
-            }
+                loadData().then(() => {
+                    showTab(localStorage.getItem('active_tab') || 'orders');
+                    
+                    // 🚀 Start Realtime Listening
+                    addLog("กำลังเปิดระบบ Realtime Order Sync...", "info");
+                    const orderChannel = supabaseClient
+                        .channel('any-db-changes')
+                        .on(
+                            'postgres_changes',
+                            { event: 'INSERT', schema: 'public', table: 'orders' },
+                            (payload) => {
+                                console.log('New Order Payload:', payload);
+                                addLog("📢 ได้รับออเดอร์ใหม่!", "success");
+                                showOrderAlert(payload.new);
+                                loadData(); // Refresh list
+                            }
+                        )
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') {
+                                addLog("✅ ระบบ Realtime พร้อมทำงาน!", "success");
+                            } else if (status === 'CHANNEL_ERROR') {
+                                addLog("❌ Realtime Error: อาจติดปัญหา RLS หรือสิทธิ์การเข้าถึง", "error");
+                            } else {
+                                console.log('Realtime Status:', status);
+                            }
+                        });
+                }); 
+            } else { document.getElementById('login-overlay').classList.remove('hidden'); }
         });
 
         async function loadData() {
             let connected = true;
             for (let type of ['products', 'partners', 'categories', 'orders']) {
                 try {
-                    addLog(`กำลังโหลด ${type}...`);
+                    addLog(`กำลังเรียกข้อมูล ${type}...`);
                     const res = await fetch(`/api/${type}`);
-                    db[type] = await res.json();
-                    addLog(`โหลด ${type} สำเร็จ`, 'success');
-                } catch(e) { db[type] = []; connected = false; addLog(`โหลด ${type} ล้มเหลว`, 'error'); }
+                    const data = await res.json();
+                    db[type] = data;
+                    addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
+                } catch(e) { 
+                    db[type] = []; 
+                    connected = false; 
+                    addLog(`โหลด ${type} ล้มเหลว: ${e.message}`, 'error'); 
+                }
             }
+            
+            // 🏷️ Populate Partner Filter
+            const filterSelect = document.getElementById('filter-partner');
+            if (filterSelect) {
+                filterSelect.innerHTML = '<option value="">แสดงทุกร้านค้า (All Partners)</option>';
+                db.partners.forEach(p => {
+                    filterSelect.innerHTML += `<option value="${p.id}">${p.name} (${p.id})</option>`;
+                });
+            }
+
+            // 🏷️ Populate Product Category Filter
+            const prodCatSelect = document.getElementById('filter-product-category');
+            if (prodCatSelect) {
+                prodCatSelect.innerHTML = '<option value="">แสดงทุกหมวดหมู่</option>';
+                db.categories.forEach(c => {
+                    prodCatSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+                });
+            }
+
             const dot = document.getElementById('status-dot');
             if (dot) dot.style.background = connected ? '#10b981' : '#ef4444';
             renderAll();
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-partner').value = "";
+            document.getElementById('search-order').value = "";
+            document.getElementById('filter-date').value = "";
+            renderAll();
+            showToast('ล้างตัวกรองออเดอร์เรียบร้อย');
+        }
+
+        function resetProductFilters() {
+            document.getElementById('filter-product-category').value = "";
+            document.getElementById('search-product-name').value = "";
+            renderAll();
+            showToast('ล้างตัวกรองสินค้าเรียบร้อย');
         }
 
         function showTab(tabName) {
@@ -266,43 +547,55 @@
         }
 
         function openModal(type, id = null) {
-            activeModal.type = type;
+            activeModal.type = type; 
             activeModal.id = id;
-            const modalBox = document.querySelector('.modal-card');
-            if (type === 'products') modalBox.classList.remove('compact');
-            else modalBox.classList.add('compact');
-
+            const modalBox = document.querySelector('#item-modal .modal-card');
+            if (type === 'products') modalBox.classList.remove('compact'); else modalBox.classList.add('compact');
             if (id) {
                 activeModal.data = JSON.parse(JSON.stringify(db[type].find(i => i.id == id)));
-                document.getElementById('modal-title').innerText = `แก้ไข${getThai(type)}`;
+                document.getElementById('modal-title').innerText = `แก้ไข${type==='products'?'สินค้า':type==='partners'?'พาร์ทเนอร์':'หมวดหมู่'}`;
             } else {
-                const shopId = 'shop-' + Math.floor(100000 + Math.random() * 900000);
-                activeModal.data = type === 'products' ? { id: Date.now(), name: '', price: 0, partnerIds: [], category: '', imageUrl: '', emoji: '🍹' } :
-                                   type === 'partners' ? { id: shopId, name: '' } : { id: Date.now(), name: '', order_index: 0 };
-                document.getElementById('modal-title').innerText = `เพิ่ม${getThai(type)}ใหม่`;
+                activeModal.data = type === 'products' ? { id: Date.now(), name: '', price: 0, partnerIds: [], category: '', imageUrl: '', emoji: '🍹' } : 
+                                   type === 'partners' ? { id: 'shop-'+Math.floor(100000+Math.random()*900000), name: '' } : 
+                                   { id: Date.now(), name: '', order_index: 0 };
+                document.getElementById('modal-title').innerText = `เพิ่มใหม่`;
             }
             renderModalForm();
             document.getElementById('item-modal').classList.remove('hidden');
         }
 
-        function getThai(t) { return t==='products'?'สินค้า':t==='partners'?'พาร์ทเนอร์':'หมวดหมู่'; }
         function closeModal() {
             const modal = document.getElementById('item-modal');
             const card = modal.querySelector('.modal-card');
-            modal.classList.add('closing');
             card.classList.add('closing');
-            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('closing'); card.classList.remove('closing'); }, 300);
+            setTimeout(() => { modal.classList.add('hidden'); card.classList.remove('closing'); }, 300);
         }
 
         function renderModalForm() {
             const content = document.getElementById('modal-form-content');
             const d = activeModal.data;
             if (activeModal.type === 'products') {
-                content.innerHTML = `<div class="preview-box" id="modal-preview">${d.imageUrl ? `<img src="${d.imageUrl}">` : d.emoji}</div><label>รูปสินค้า</label><input type="file" onchange="handleModalUpload(this)"><label>ชื่อสินค้า</label><input value="${d.name}" onchange="activeModal.data.name=this.value"><div style="display:grid; grid-template-columns:1fr 1fr; gap:15px"><div><label>ราคา</label><input type="number" value="${d.price}" onchange="activeModal.data.price=Number(this.value)"></div><div><label>หมวดหมู่</label><select onchange="activeModal.data.category=this.value"><option value="">-- เลือก --</option>${db.categories.map(c => `<option value="${c.name}" ${d.category==c.name?'selected':''}>${c.name}</option>`).join('')}</select></div></div><label>ร้านที่แสดงผล</label><div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px">${db.partners.map(p => `<div class="partner-pill ${d.partnerIds.includes(p.id)?'active':''}" onclick="toggleModalPart('${p.id}', this)">${p.name}</div>`).join('')}</div>`;
+                content.innerHTML = `
+                    <div class="preview-box" id="modal-preview">${d.imageUrl ? `<img src="${d.imageUrl}">` : d.emoji}</div>
+                    <label>รูปสินค้า</label><input type="file" onchange="handleModalUpload(this)">
+                    <label>ชื่อสินค้า</label><input value="${d.name}" onchange="activeModal.data.name=this.value">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px">
+                        <div><label>ราคา</label><input type="number" value="${d.price}" onchange="activeModal.data.price=Number(this.value)"></div>
+                        <div><label>หมวดหมู่</label><select onchange="activeModal.data.category=this.value">
+                            <option value="">-- เลือก --</option>
+                            ${db.categories.map(c => `<option value="${c.name}" ${d.category==c.name?'selected':''}>${c.name}</option>`).join('')}
+                        </select></div>
+                    </div>
+                    <label>ร้านที่แสดงผล</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px">
+                        ${db.partners.map(p => `<div class="partner-pill ${d.partnerIds.includes(p.id)?'active':''}" onclick="toggleModalPart('${p.id}', this)">${p.name}</div>`).join('')}
+                    </div>`;
             } else if (activeModal.type === 'partners') {
-                content.innerHTML = `<label>รหัสร้าน (ID)</label><input value="${d.id}" oninput="activeModal.data.id=this.value" ${activeModal.id ? 'readonly' : ''}><label>ชื่อร้าน</label><input value="${d.name}" oninput="activeModal.data.name=this.value">`;
+                content.innerHTML = `
+                    <label>รหัสร้าน (ID)</label><input value="${d.id}" oninput="activeModal.data.id=this.value" ${activeModal.id ? 'readonly' : ''}>
+                    <label>ชื่อร้าน</label><input value="${d.name}" oninput="activeModal.data.name=this.value">`;
             } else {
-                content.innerHTML = `<label>ชื่อหมวดหมู่</label><input value="${d.name}" onchange="activeModal.data.name=this.value"><label>ลำดับ</label><input type="number" value="${d.order_index}" onchange="activeModal.data.order_index=this.value">`;
+                content.innerHTML = `<label>ชื่อหมวดหมู่</label><input value="${d.name}" onchange="activeModal.data.name=this.value">`;
             }
         }
 
@@ -322,33 +615,192 @@
         }
 
         async function saveModalItem() {
-            const type = activeModal.type;
-            const res = await fetch(`/api/${type}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(db[type].map(i => i.id == activeModal.data.id ? activeModal.data : i).concat(db[type].some(i => i.id == activeModal.data.id) ? [] : [activeModal.data])) });
+            const res = await fetch(`/api/${activeModal.type}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(db[activeModal.type].map(i => i.id == activeModal.data.id ? activeModal.data : i).concat(db[activeModal.type].some(i => i.id == activeModal.data.id) ? [] : [activeModal.data])) 
+            });
             if (res.ok) { closeModal(); await loadData(); showToast('บันทึกสำเร็จ'); }
         }
 
         function renderAll() {
-            const draw = (id, type, fn) => { 
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = db[type].length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:50px;opacity:0.5">ไม่มีข้อมูล</div>' : db[type].map(fn).join(''); 
-            };
-            draw('products-list', 'products', p => `<div class="item-card" onclick="openModal('products','${p.id}')"><div style="display:flex;gap:12px;align-items:center"><div style="width:50px;height:50px;border-radius:10px;overflow:hidden;background:var(--slate-50);flex-shrink:0">${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover">` : p.emoji}</div><div style="flex:1"><div style="font-weight:800;font-size:0.9rem">${p.name}</div><div style="font-size:0.7rem;color:var(--slate-500)">฿${p.price} • ${p.category}</div></div><button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('products','${p.id}')">🗑️</button></div></div>`);
-            draw('partners-list', 'partners', p => `<div class="item-card" onclick="openModal('partners','${p.id}')"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:800;font-size:0.9rem">${p.name}</div><div style="font-size:0.7rem;opacity:0.6">${p.id}</div></div><button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('partners','${p.id}')">🗑️</button></div></div>`);
-            
-            const catListEl = document.getElementById('categories-list');
-            if (catListEl) {
-                catListEl.innerHTML = db.categories.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:50px;opacity:0.5">ไม่มีข้อมูล</div>' : db.categories.map(c => `<div class="item-card" data-id="${c.id}" onclick="openModal('categories','${c.id}')"><div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex; align-items:center; gap:15px"><div class="drag-handle" style="cursor:grab">☰</div><div><div style="font-weight:800;font-size:0.95rem">${c.name}</div><div style="font-size:0.7rem;opacity:0.6;font-weight:700">ลำดับที่: ${c.order_index || 0}</div></div></div><button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('categories','${c.id}')">🗑️</button></div></div>`).join('');
-                new Sortable(catListEl, { animation: 150, handle: '.drag-handle', onEnd: async function() {
-                    const items = Array.from(catListEl.querySelectorAll('.item-card'));
-                    const updated = items.map((el, index) => { const cat = db.categories.find(c => c.id == el.dataset.id); return { ...cat, order_index: index + 1 }; });
-                    db.categories = updated; const res = await fetch('/api/categories', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(db.categories) });
-                    if (res.ok) { showToast('จัดเรียงลำดับสำเร็จ!'); loadData(); }
-                }});
-            }
-            const oList = document.getElementById('orders-list');
-            if (oList) oList.innerHTML = db.orders.length === 0 ? '<div class="item-card" style="text-align:center;padding:50px;opacity:0.5">ไม่มีรายการสั่งซื้อ</div>' : `<div class="item-card" style="padding:0;overflow:hidden"><table><tr><th style="padding:15px">เวลา</th><th style="padding:15px">ร้าน</th><th style="padding:15px">ยอด</th><th style="padding:15px"></th></tr>${db.orders.map(o => `<tr><td style="padding:15px;font-size:0.8rem">${new Date(o.timestamp).toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit'})}</td><td style="padding:15px;font-size:0.8rem">${o.partnerId}</td><td style="padding:15px;font-weight:800">฿${o.total}</td><td style="padding:15px"><button class="btn btn-del" style="padding:5px 10px;font-size:0.7rem" onclick="deleteItem('orders','${o.id}')">ลบ</button></td></tr>`).join('')}</table></div>`;
-        }
+            try {
+                // 1. Draw Products
+                const pList = document.getElementById('products-list');
+                if (pList) {
+                    const filterCat = document.getElementById('filter-product-category').value;
+                    const searchName = document.getElementById('search-product-name').value.toLowerCase();
 
+                    const filteredProducts = db.products.filter(p => {
+                        const matchCat = !filterCat || p.category === filterCat;
+                        const matchName = !searchName || (p.name || '').toLowerCase().includes(searchName);
+                        return matchCat && matchName;
+                    });
+
+                    pList.innerHTML = filteredProducts.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:50px;opacity:0.5">ไม่พบข้อมูลสินค้า</div>' : filteredProducts.map(p => `
+                        <div class="item-card" onclick="openModal('products','${p.id}')">
+                            <div style="display:flex;gap:12px;align-items:center">
+                                <div style="width:50px;height:50px;border-radius:10px;overflow:hidden;background:var(--slate-50);flex-shrink:0">
+                                    ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;height:100%;object-fit:cover">` : p.emoji}
+                                </div>
+                                <div style="flex:1">
+                                    <div style="font-weight:800;font-size:0.9rem">${p.name}</div>
+                                    <div style="font-size:0.7rem;color:var(--slate-500)">฿${p.price} • ${p.category}</div>
+                                </div>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('products','${p.id}')">🗑️</button>
+                            </div>
+                        </div>`).join('');
+                }
+
+                // 2. Draw Partners
+                const partList = document.getElementById('partners-list');
+                if (partList) partList.innerHTML = db.partners.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:50px;opacity:0.5">ไม่มีข้อมูลพาร์ทเนอร์</div>' : db.partners.map(p => `
+                    <div class="item-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div onclick="openModal('partners','${p.id}')" style="cursor:pointer; flex:1;">
+                                <div style="font-weight:800;font-size:0.9rem">${p.name}</div>
+                                <div style="font-size:0.7rem;opacity:0.6">${p.id}</div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn" style="background: var(--slate-50); color: var(--dark); padding: 8px 12px; font-size: 0.75rem;" onclick="event.stopPropagation(); showQrModal('${p.id}', '${p.name}')">QR Code</button>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('partners','${p.id}')">🗑️</button>
+                            </div>
+                        </div>
+                    </div>`).join('');
+
+                // 3. Draw Categories (with Sortable)
+                const catListEl = document.getElementById('categories-list');
+                if (catListEl) {
+                    catListEl.innerHTML = db.categories.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:50px;opacity:0.5">ไม่มีข้อมูลหมวดหมู่</div>' : db.categories.map(c => `
+                        <div class="item-card" data-id="${c.id}" onclick="openModal('categories','${c.id}')">
+                            <div style="display:flex;justify-content:space-between;align-items:center">
+                                <div style="display:flex; align-items:center; gap:15px">
+                                    <div class="drag-handle" style="cursor:grab">☰</div>
+                                    <div><div style="font-weight:800;font-size:0.95rem">${c.name}</div></div>
+                                </div>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('categories','${c.id}')">🗑️</button>
+                            </div>
+                        </div>`).join('');
+                    
+                    if (!catListEl.dataset.sortableActive) {
+                        new Sortable(catListEl, { 
+                            animation: 150, handle: '.drag-handle', 
+                            onEnd: async function() {
+                                const items = Array.from(catListEl.querySelectorAll('.item-card'));
+                                const updated = items.map((el, index) => { 
+                                    const cat = db.categories.find(c => c.id == el.dataset.id); 
+                                    return { ...cat, order_index: index + 1 }; 
+                                });
+                                db.categories = updated; 
+                                await fetch('/api/categories', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(db.categories) });
+                                showToast('จัดเรียงลำดับสำเร็จ!'); loadData();
+                            }
+                        });
+                        catListEl.dataset.sortableActive = 'true';
+                    }
+                }
+
+                // 4. Draw Orders (with Filtering & Stats)
+                const oList = document.getElementById('orders-list');
+                if (oList) {
+                    const filterP = document.getElementById('filter-partner').value;
+                    const filterD = document.getElementById('filter-date').value;
+                    const searchID = document.getElementById('search-order').value.toLowerCase();
+
+                    // Apply Filters
+                    const filteredOrders = db.orders.filter(o => {
+                        const orderId = String(o.id || '');
+                        const pId = String(o.partnerId || o.partner_id || '');
+                        const orderDate = o.timestamp ? o.timestamp.split('T')[0] : '';
+                        
+                        const matchPartner = !filterP || pId === filterP;
+                        const matchDate = !filterD || orderDate === filterD;
+                        const matchSearch = !searchID || orderId.toLowerCase().includes(searchID);
+                        
+                        return matchPartner && matchDate && matchSearch;
+                    });
+
+                    // Update Stats
+                    const totalRevenue = filteredOrders.reduce((sum, o) => sum + (o.total || o.total_amount || 0), 0);
+                    const statsContainer = document.getElementById('order-stats-container');
+                    if (statsContainer) {
+                        statsContainer.innerHTML = `
+                            <div style="background: #fff1f2; padding: 10px 20px; border-radius: 15px; border: 1px solid #fee2e2;">
+                                <div style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase;">ออเดอร์ทั้งหมด</div>
+                                <div style="font-size: 1.2rem; font-weight: 800;">${filteredOrders.length}</div>
+                            </div>
+                            <div style="background: #f0fdf4; padding: 10px 20px; border-radius: 15px; border: 1px solid #dcfce7;">
+                                <div style="font-size: 0.65rem; font-weight: 800; color: #10b981; text-transform: uppercase;">ยอดรวมรายได้</div>
+                                <div style="font-size: 1.2rem; font-weight: 800;">฿${totalRevenue.toLocaleString()}</div>
+                            </div>
+                        `;
+                    }
+
+                    if (filteredOrders.length === 0) {
+                        oList.innerHTML = '<div class="item-card" style="text-align:center;padding:50px;opacity:0.5">ไม่พบรายการสั่งซื้อที่ค้นหา</div>';
+                    } else {
+                        oList.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px;">
+                            ${filteredOrders.map(o => {
+                                let items = [];
+                                try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []); } catch(e) { items = []; }
+                                const orderId = o.id || 'N/A';
+                                const partnerId = o.partnerId || o.partner_id || 'Unknown';
+                                const total = o.total || o.total_amount || 0;
+                                const time = o.timestamp ? new Date(o.timestamp).toLocaleString('th-TH') : 'N/A';
+
+                                return `
+                                    <div class="item-card" style="padding: 25px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed var(--slate-200);">
+                                            <div>
+                                                <div style="font-weight: 800; font-size: 1.1rem; color: var(--dark);">ออเดอร์ #${orderId}</div>
+                                                <div style="font-size: 0.8rem; color: var(--slate-500); margin-top: 4px;">
+                                                    ร้าน: <strong>${partnerId}</strong> • ${time}
+                                                </div>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <div style="font-weight: 800; font-size: 1.3rem; color: var(--primary);">฿${total.toLocaleString()}</div>
+                                                <button class="btn btn-del" style="padding: 5px 12px; font-size: 0.75rem; margin-top: 8px;" onclick="deleteItem('orders','${o.id}')">ลบรายการ</button>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                                            ${items.map(item => `
+                                                <div style="display: flex; align-items: center; gap: 15px; background: var(--slate-50); padding: 8px 15px; border-radius: 12px;">
+                                                    <div style="width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: white; display: flex; align-items: center; justify-content: center; border: 1px solid var(--slate-200); flex-shrink: 0;">
+                                                        ${item.imageUrl ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 1.2rem;">${item.emoji || '🥤'}</span>`}
+                                                    </div>
+                                                    <div style="flex: 1;">
+                                                        <div style="font-weight: 700; font-size: 0.85rem;">${item.name || 'ไม่ระบุชื่อ'} x ${item.quantity || 1}</div>
+                                                        <div style="font-size: 0.7rem; color: var(--slate-500);">ความหวาน: ${item.sweetness || 'ปกติ'}</div>
+                                                    </div>
+                                                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--dark);">฿${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>`;
+                    }
+                }
+            } catch (err) {
+                console.error("Render Error:", err);
+                addLog("เกิดข้อผิดพลาดในการวาดหน้าจอ: " + err.message, "error");
+            }
+        }
+        function showQrModal(partnerId, partnerName) {
+            const modal = document.getElementById('qr-modal');
+            const url = `${window.location.origin}/store/${partnerId}`;
+            modal.innerHTML = `
+                <div class="modal-card compact" style="text-align: center;" onclick="event.stopPropagation()">
+                    <h2 style="margin-bottom: 20px;">QR Code สำหรับ ${partnerName}</h2>
+                    <div style="background: white; padding: 20px; border-radius: 25px; display: inline-block; margin: 0 auto;"><canvas id="qr-canvas" style="width: 100% !important; height: auto !important; max-width: 250px; display: block;"></canvas></div>
+                    <p style="font-size: 0.8rem; opacity: 0.6; margin-top: 20px; word-break: break-all;">${url}</p>
+                    <div style="margin-top: 25px;"><button class="btn btn-dark" style="width: 100%; justify-content: center;" onclick="closeQrModal()">ปิดหน้าต่าง</button></div>
+                </div>`;
+            QRCode.toCanvas(modal.querySelector('#qr-canvas'), url, { width: 250, margin: 2 });
+            modal.classList.remove('hidden');
+        }
+        function closeQrModal() { document.getElementById('qr-modal').classList.add('hidden'); }
         async function deleteItem(type, id) { if (confirm('ลบข้อมูลนี้?')) { await fetch(`/api/${type}/${id}`, {method: 'DELETE'}); loadData(); } }
     </script>
 </body>

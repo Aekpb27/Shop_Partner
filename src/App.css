@@ -7,7 +7,7 @@
   --gold: #f59e0b;
   --dark: #0f172a;
   --darker: #020617;
-  --light: #f8fafc;
+  --light: #f8fafc; /* 👈 คืนค่าพื้นหลังเว็ปเป็นสีเดิม */
   --white: #ffffff;
   --glass: rgba(255, 255, 255, 0.85);
   --border: rgba(15, 23, 42, 0.08);
@@ -22,7 +22,55 @@ html, body { max-width: 100%; overflow-x: hidden; position: relative; width: 100
 button:focus, a:focus, input:focus { outline: none; }
 body { background: var(--light); color: var(--dark); line-height: 1.6; }
 
-.loading-screen { display: flex; height: 100vh; width: 100%; align-items: center; justify-content: center; background: var(--darker); color: white; font-weight: 700; font-size: 1.2rem; }
+.loading-screen { 
+  display: flex; 
+  height: 100vh; 
+  width: 100%; 
+  align-items: center; 
+  justify-content: center; 
+  background: #ffffff; 
+  color: var(--darker); 
+  font-weight: 800; 
+  font-size: 1.4rem; 
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  overflow: hidden;
+  letter-spacing: -1px;
+}
+
+/* ✨ Floating Orbs for Loading (Same as Login) */
+.loading-screen::before, .loading-screen::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.6;
+  z-index: -1;
+  animation: slowFloat 15s infinite alternate ease-in-out;
+}
+
+.loading-screen::before {
+  width: 500px;
+  height: 500px;
+  background: #fee2e2;
+  top: -150px;
+  left: -150px;
+}
+
+.loading-screen::after {
+  width: 400px;
+  height: 400px;
+  background: #e0f2fe;
+  bottom: -100px;
+  right: -100px;
+  animation-duration: 20s;
+}
+
+@keyframes slowFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(50px, 50px) scale(1.1); }
+}
 
 /* Navbar */
 .navbar { position: sticky; top: 0; z-index: 1000; background: var(--glass); backdrop-filter: blur(20px); padding: 1rem 8%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); width: 100%; }
@@ -55,9 +103,33 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 .hero p { color: #64748b; font-size: 1rem; max-width: 550px; margin: 0 auto; opacity: 0.8; }
 
 /* Filter Bar */
-.filter-bar { display: flex; gap: 12px; justify-content: center; margin-bottom: 40px; padding: 10px 20px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.filter-bar { 
+  display: flex; 
+  gap: 12px; 
+  margin-bottom: 40px; 
+  padding: 15px 20px; 
+  overflow-x: auto; 
+  flex-wrap: nowrap; 
+  scrollbar-width: none; 
+  -webkit-overflow-scrolling: touch; 
+  width: 100%;
+  justify-content: center; /* 👈 จอคอมให้กึ่งกลาง */
+}
 .filter-bar::-webkit-scrollbar { display: none; }
-.filter-chip { padding: 12px 30px; border-radius: 50px; border: 2px solid white; background: white; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: #64748b; transition: var(--transition); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); white-space: nowrap; }
+.filter-chip { 
+  padding: 12px 30px; 
+  border-radius: 50px; 
+  border: 2px solid white; 
+  background: white; 
+  cursor: pointer; 
+  font-weight: 700; 
+  font-size: 0.85rem; 
+  color: #64748b; 
+  transition: var(--transition); 
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+  white-space: nowrap; 
+  flex-shrink: 0; /* 👈 ป้องกันชิปหดตัว เพื่อให้เลื่อนได้ */
+}
 .filter-chip.active { background: var(--darker); color: white; border-color: var(--darker); transform: scale(1.05); }
 
 /* Product Grid */
@@ -159,6 +231,7 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
   .navbar { padding: 1rem 20px; }
   .brand-text { font-size: 1.2rem; }
   .hero h1 { font-size: 2.2rem; }
+  .filter-bar { justify-content: flex-start; } /* 👈 บนมือถือให้ชิดซ้ายเพื่อให้เลื่อนได้ */
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 0 15px 60px; }
   .product-card { padding: 12px; border-radius: 20px; }
   .img-wrapper { height: 240px; border-radius: 15px; }
@@ -182,4 +255,129 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
   @keyframes drawerExitMobile { from { transform: translateY(0); } to { transform: translateY(100%); } }
 }
 
-.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--darker); color: white; padding: 14px 28px; border-radius: 50px; z-index: 3000; font-size: 0.9rem; font-weight: 700; box-shadow: var(--shadow-lg); }
+.toast { 
+  position: fixed; 
+  top: 30px; /* ย้ายมาด้านบน */
+  left: 50%; 
+  transform: translateX(-50%); 
+  background: white; /* พื้นหลังสีขาว */
+  color: var(--darker); 
+  padding: 16px 30px; 
+  border-radius: 24px; 
+  z-index: 9999; 
+  font-size: 1rem; 
+  font-weight: 700; 
+  box-shadow: 0 15px 45px rgba(0,0,0,0.12); 
+  border: 1px solid rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toastPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes toastPop {
+  0% { opacity: 0; transform: translate(-50%, -20px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 🛒 FAB Cart Button */
+.cart-fab {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 65px;
+  height: 65px;
+  background: #fff1f2;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2400;
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform: scale(0) translateY(50px);
+  opacity: 0;
+  pointer-events: none;
+  /* 👈 เอา overflow: hidden ออกเพื่อให้ตัวเลขแจ้งเตือนไม่ถูกตัด */
+}
+
+/* ✨ RGB Light Effect */
+.cart-fab::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px; /* ปรับขนาดให้พอดีขอบ */
+  background: conic-gradient(
+    #ff0000, #ff7700, #ffff00, #00ff00, #00ffff, #0000ff, #8a00ff, #ff00ea, #ff0000
+  );
+  animation: rgbRotate 2s linear infinite;
+  z-index: 1;
+  border-radius: 50%; /* 👈 ทำให้ตัวไฟเป็นวงกลมโดยไม่ต้องใช้ overflow: hidden */
+}
+
+/* 🛑 Inner Cover (Mask) */
+.cart-fab::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px; /* ความหนาของเส้นไฟ RGB */
+  background: #fff1f2;
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.cart-fab .fab-img {
+  position: relative;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+@keyframes rgbRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.cart-fab.visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05), 0 0 15px rgba(239, 68, 68, 0.15); 
+}
+
+.cart-fab:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 20px 40px rgba(239, 68, 68, 0.25);
+}
+
+.cart-fab:active {
+  transform: scale(0.9);
+}
+
+.fab-badge {
+  position: absolute;
+  top: -5px; /* 👈 ขยับขึ้นและขวาเพื่อให้ลอยเด่นออกมา */
+  right: -5px;
+  background: var(--darker);
+  color: white;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  z-index: 10; /* อยู่ชั้นบนสุดเสมอ */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 768px) {
+  .cart-fab {
+    bottom: 25px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+  }
+}

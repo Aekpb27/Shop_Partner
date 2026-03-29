@@ -4,7 +4,6 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import fs from 'fs';
 import multer from 'multer';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -13,6 +12,7 @@ const envPath = path.join(__dirname, '.env');
 dotenv.config({ path: envPath });
 
 const app = express();
+// พยายามใช้ Port 80 ถ้าไม่ได้ให้ไปใช้ 3001 (เพื่อความปลอดภัยบน Windows)
 const PORT = process.env.PORT || 80;
 
 // 🔐 Supabase Configuration
@@ -32,7 +32,21 @@ app.use(bodyParser.json());
 // 1. 📁 Serve Backend Assets (Icons)
 app.use('/assets', express.static(path.join(__dirname, 'assets'))); 
 
-// 2. 📸 API: Upload Image
+// 2. 🐉 API: Login
+app.post('/api/login', async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    if (!supabase) return res.status(500).json({ error: 'ไม่ได้เชื่อมต่อ Supabase' });
+
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return res.status(401).json({ error: error.message });
+        res.json({ success: true, user: data.user });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 3. 📸 API: Upload Image
 app.post('/api/upload', upload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!supabase) throw new Error('Supabase not connected');
@@ -48,13 +62,12 @@ app.post('/api/upload', upload.single('image'), async (req: Request, res: Respon
   }
 });
 
-// 3. 🐉 API: Data Management
+// 4. 🐉 API: Data Management
 app.get('/api/:table', async (req: Request, res: Response) => {
     if (!supabase) return res.json([]);
     const { table } = req.params;
     let query = supabase.from(table).select('*');
     
-    // ✨ เพิ่มระบบการเรียงลำดับ
     if (table === 'orders') query = query.order('timestamp', { ascending: false });
     if (table === 'categories') query = query.order('order_index', { ascending: true });
     if (table === 'products') query = query.order('id', { ascending: true });
@@ -83,28 +96,26 @@ app.delete('/api/:table/:id', async (req: Request, res: Response) => {
     res.json({ success: !error });
 });
 
-app.post('/api/login', async (req: Request, res: Response) => {
-    if (!supabase) return res.status(500).json({ error: 'X' });
-    const { data, error } = await supabase.auth.signInWithPassword(req.body);
-    if (error) return res.status(401).json({ error: error.message });
-    res.json({ success: true, user: data.user });
-});
-
-// 4. 🏰 Admin Dashboard UI
+// 5. 🏰 Admin Dashboard UI
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-// บังคับใช้ static สำหรับไฟล์อื่นๆ ใน public (เช่น ถ้ามี css/js แยก)
-app.use('/admin', express.static(path.join(__dirname, 'public')));
+// สำคัญ: ต้องใช้ path.resolve เพื่อความแม่นยำบน Windows
+app.use('/admin', express.static(path.resolve(__dirname, 'public')));
 
-// 5. 🎯 Reverse Proxy to Frontend (Vite)
-// ส่งต่อทุกอย่างที่ไม่ใช่ /api, /assets, /admin ไปที่ Vite พอร์ต 5173
+// 🛑 บล็อกการเข้าถึงหน้าแรกตรงๆ (ตามคำสั่ง)
+app.get('/', (req, res) => {
+  res.status(404).send('404 Not Found - กรุณาระบุรหัสร้านค้าเพื่อเข้าใช้งาน');
+});
+
+// 6. 🎯 Reverse Proxy to Frontend (Vite)
+// ปรับปรุงให้รองรับ http-proxy-middleware v3
 app.use('/', createProxyMiddleware({
   target: 'http://localhost:5173',
   changeOrigin: true,
-  ws: true, // รองรับ WebSocket สำหรับระบบ Hot Reload ของ Vite
-  logLevel: 'silent',
-  filter: (pathname) => {
+  ws: true,
+  logger: console, // เปิด log เพื่อดูปัญหาถ้าเชื่อมต่อไม่ได้
+  pathFilter: (pathname) => {
     return !pathname.startsWith('/api') && 
            !pathname.startsWith('/assets') && 
            !pathname.startsWith('/admin');
@@ -112,10 +123,20 @@ app.use('/', createProxyMiddleware({
 }));
 
 // 🚀 Start Server
-app.listen(PORT, '0.0.0.0', async () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('--------------------------------------------------');
-  console.log(`🐉 Backend Gateway is PUBLICLY AVAILABLE! 🔥`);
-  console.log(`🏠 Access via your Local IP (e.g. http://192.168.1.50)`);
-  console.log(`⚙️  Admin Dashboard: http://localhost/admin`);
+  console.log(`🐉 Backend Gateway is ONLINE! 🔥`);
+  console.log(`🏠 Network Access: http://localhost:${PORT}`);
+  console.log(`⚙️  Admin Dashboard: http://localhost:${PORT}/admin`);
   console.log('--------------------------------------------------');
+});
+
+// ตรวจสอบ Error กรณีรันไม่ได้ (เช่น Port ซ้ำ)
+server.on('error', (e: any) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`❌ Error: Port ${PORT} ถูกใช้งานอยู่แล้ว!`);
+    console.info(`💡 วิธีแก้: ลองปิดโปรแกรมที่ใช้ Port 80 หรือเปลี่ยน PORT ใน .env ครับ`);
+  } else {
+    console.error('❌ Server Error:', e);
+  }
 });
