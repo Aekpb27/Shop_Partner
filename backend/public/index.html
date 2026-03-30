@@ -193,18 +193,6 @@
         </div>
     </div>
 
-    <!-- 🚪 Logout Confirmation Modal -->
-    <div id="logout-modal" class="modal-overlay hidden">
-        <div class="modal-card compact">
-            <h2>ออกจากระบบ?</h2>
-            <p style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px;">ต้องการออกจากระบบใช่หรือไม่?</p>
-            <div class="modal-footer">
-                <button class="btn btn-dark" style="justify-content: center;" onclick="closeLogoutModal()">ยกเลิก</button>
-                <button class="btn btn-primary" style="justify-content: center;" onclick="confirmLogout()">ยืนยัน</button>
-            </div>
-        </div>
-    </div>
-
     <!-- ✨ QR Code Modal -->
     <div id="qr-modal" class="modal-overlay hidden" onclick="closeQrModal()">
         <div id="qr-modal-content"></div>
@@ -212,8 +200,8 @@
 
     <!-- ⚠️ Confirmation Modal -->
     <div id="confirm-modal" class="modal-overlay hidden">
-        <div class="modal-card compact">
-            <div style="font-size: 3.5rem; margin-bottom: 20px;">⚠️</div>
+        <div class="modal-card compact" style="text-align: center;">
+            <div style="font-size: 3.5rem; margin-bottom: 20px; display: flex; justify-content: center;">⚠️</div>
             <h2 id="confirm-title">ยืนยันการดำเนินการ</h2>
             <p id="confirm-msg" style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px; line-height: 1.6;">คุณต้องการทำรายการนี้ใช่หรือไม่?</p>
             <div class="modal-footer">
@@ -471,10 +459,12 @@
             } catch (e) { showToast("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", "error"); }
         }
 
-        function logout() { document.getElementById('logout-modal').classList.remove('hidden'); }
-        function closeLogoutModal() { document.getElementById('logout-modal').classList.add('hidden'); }
-        function confirmLogout() { localStorage.clear(); location.reload(); }
-        
+        function logout() {
+            showConfirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบจัดการใช่หรือไม่?', () => {
+                localStorage.clear();
+                location.reload();
+            });
+        }
         function togglePass() {
             const passInput = document.getElementById('login-password');
             const eyeIcon = document.getElementById('toggle-eye');
