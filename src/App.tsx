@@ -330,6 +330,23 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   );
 }
 
+// --- Admin Dashboard Components ---
+function ConfirmationModal({ title, msg, onConfirm, onClose, isOpen }: { title: string, msg: string, onConfirm: () => void, onClose: () => void, isOpen: boolean }) {
+  return (
+    <div className="confirm-modal-overlay" onClick={onClose}>
+      <div className="confirm-card" onClick={e => e.stopPropagation()}>
+        <div className="confirm-icon">⚠️</div>
+        <h2>{title}</h2>
+        <p>{msg}</p>
+        <div className="confirm-footer">
+          <button className="btn btn-dark" style={{justifyContent: 'center'}} onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" style={{justifyContent: 'center', background: 'var(--primary)', color: 'white'}} onClick={() => { onConfirm(); onClose(); }}>ยืนยัน</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Admin Dashboard ---
 function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
@@ -344,10 +361,14 @@ function AdminDashboard() {
   const [newPp, setNewPp] = useState('');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{title: string, msg: string, onConfirm: () => void} | null>(null);
   
   const navigate = useNavigate();
   const notificationAudio = useRef(new Audio('/assets/alert.mp3'));
 
+  const showConfirm = (title: string, msg: string, onConfirm: () => void) => {
+    setConfirmModal({ title, msg, onConfirm });
+  };
   useEffect(() => { localStorage.setItem('dragonz_admin_tab', activeTab); }, [activeTab]);
 
   const showNotification = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
@@ -388,14 +409,30 @@ function AdminDashboard() {
   };
 
   const addPpNumber = () => { if (newPp) { saveSettings([...settings.promptpay_numbers, newPp]); setNewPp(''); } };
-  const removePpNumber = (num: string) => { saveSettings(settings.promptpay_numbers.filter(n => n !== num)); };
+  const removePpNumber = (num: string) => {
+    showConfirm('ลบเบอร์ PromptPay?', `คุณต้องการลบเบอร์ ${num} ออกจากรายการใช่หรือไม่?`, () => {
+      saveSettings(settings.promptpay_numbers.filter(n => n !== num));
+    });
+  };
   
   const updateStatus = async (id: number, status: string) => { await supabase.from('orders').update({ status }).eq('id', id); loadData(); };
   
   const handleDelete = async (table: string, id: any) => {
-    if (!confirm('ยืนยันการลบ?')) return;
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (!error) loadData();
+    showConfirm('ยืนยันการลบ?', `คุณต้องการลบข้อมูลนี้ออกจากตาราง ${table} ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (!error) {
+        showNotification('✅ ลบข้อมูลสำเร็จ');
+        loadData();
+      } else {
+        alert('❌ ไม่สามารถลบได้: ' + error.message);
+      }
+    });
+  };
+
+  const handleLogout = () => {
+    showConfirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบจัดการใช่หรือไม่?', () => {
+      supabase.auth.signOut();
+    });
   };
 
   const openEditModal = (type: string, item: any = null) => {
@@ -504,6 +541,16 @@ function AdminDashboard() {
             <button className="checkout-button" style={{marginTop:'20px'}} onClick={saveItem}>บันทึกข้อมูล</button>
           </div>
         </div></div>
+      )}
+
+      {confirmModal && (
+        <ConfirmationModal 
+          title={confirmModal.title} 
+          msg={confirmModal.msg} 
+          onConfirm={confirmModal.onConfirm} 
+          onClose={() => setConfirmModal(null)} 
+          isOpen={!!confirmModal} 
+        />
       )}
     </div>
   );

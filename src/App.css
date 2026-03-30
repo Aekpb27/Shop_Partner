@@ -405,6 +405,58 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 .partner-pill:hover { border-color: var(--primary); transform: translateY(-2px); }
 .partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); }
 
+/* ⚠️ Confirmation Modal Styles */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.confirm-card {
+  background: white;
+  padding: 40px 35px;
+  border-radius: 32px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+  animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirm-icon {
+  font-size: 3.5rem;
+  margin-bottom: 20px;
+}
+
+.confirm-card h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: var(--darker);
+}
+
+.confirm-card p {
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.confirm-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 /* 📱 Mobile Optimization */
 @media (max-width: 768px) {
   .navbar { padding: 1rem 20px; }
