@@ -210,6 +210,19 @@
         <div id="qr-modal-content"></div>
     </div>
 
+    <!-- ⚠️ Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-card compact">
+            <div style="font-size: 3.5rem; margin-bottom: 20px;">⚠️</div>
+            <h2 id="confirm-title">ยืนยันการดำเนินการ</h2>
+            <p id="confirm-msg" style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px; line-height: 1.6;">คุณต้องการทำรายการนี้ใช่หรือไม่?</p>
+            <div class="modal-footer">
+                <button class="btn btn-dark" style="justify-content: center;" onclick="closeConfirmModal()">ยกเลิก</button>
+                <button id="confirm-submit-btn" class="btn btn-primary" style="justify-content: center;">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 🏰 UI Structure -->
     <div id="dashboard-ui" class="hidden" style="display: flex; width: 100%; height: 100%;">
         <div class="sidebar" id="sidebar">
@@ -227,6 +240,9 @@
             </button>
             <button class="nav-btn" data-tab="categories" onclick="showTab('categories')">
                 <img src="/assets/category.png" class="menu-icon"> <span>หมวดหมู่</span>
+            </button>
+            <button class="nav-btn" data-tab="transactions" onclick="showTab('transactions')">
+                <img src="/assets/transaction.png" class="menu-icon"> <span>จัดการโอนเงิน</span>
             </button>
             
             <div class="logout-btn">
@@ -309,6 +325,36 @@
                 <div class="header"><h1>หมวดหมู่สินค้า</h1><button class="btn btn-primary" onclick="openModal('categories')">+ เพิ่มหมวดหมู่</button></div>
                 <div id="categories-list" class="item-grid"></div>
             </div>
+            <div id="section-transactions" class="hidden">
+                <div class="header">
+                    <h1>จัดการโอนเงิน</h1>
+                    <button class="btn btn-dark" onclick="loadData()">รีเฟรชข้อมูล</button>
+                </div>
+
+                <div class="item-card" style="max-width: 700px; padding: 35px; cursor: default;">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 25px;">
+                        <span style="font-size: 2.2rem;">📱</span>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.4rem; font-weight: 800;">ตั้งค่า PromptPay</h3>
+                            <p style="margin: 5px 0 0; font-size: 0.85rem; color: var(--slate-500); font-weight: 600;">ระบุชื่อบัญชีและเบอร์พร้อมเพย์ของร้านค้า</p>
+                        </div>
+                    </div>
+                    
+                    <div id="pp-input-container" style="background: var(--slate-50); padding: 25px; border-radius: 24px; border: 1px dashed var(--slate-200); margin-bottom: 30px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div><label style="margin-top: 0; font-weight: 700;">ชื่อบัญชี</label><input type="text" id="new-pp-name" placeholder="ชื่อ-นามสกุล"></div>
+                            <div><label style="margin-top: 0; font-weight: 700;">เบอร์พร้อมเพย์</label><input type="text" id="new-pp-input" placeholder="095xxxxxxx"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="addPpNumber()" style="width: 100%; height: 55px; justify-content: center;">บันทึกข้อมูลการโอนเงิน</button>
+                    </div>
+
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--slate-500);">ข้อมูลปัจจุบัน</h4>
+                        <span id="pp-count-badge" style="background: var(--slate-200); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem;">0/1</span>
+                    </div>
+                    <div id="pp-list"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -318,7 +364,7 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wcWFzcXpubXhlam1heGNwb2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MTgyNTgsImV4cCI6MjA4NTE5NDI1OH0.nVE8IWiCikPO4s7UU36HgSqfddtr_YAeWnAAWUZAiyE';
         const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
-        let db = { products: [], partners: [], categories: [], orders: [] };
+        let db = { products: [], partners: [], categories: [], orders: [], payment: { id: 'promptpay', account_name: '', promptpay_number: '' } };
         let activeModal = { type: '', id: null, data: {} };
         
         // 🔊 Audio Management
@@ -480,15 +526,21 @@
 
         async function loadData() {
             let connected = true;
-            for (let type of ['products', 'partners', 'categories', 'orders']) {
+            for (let type of ['products', 'partners', 'categories', 'orders', 'payment']) {
                 try {
                     addLog(`กำลังเรียกข้อมูล ${type}...`);
                     const res = await fetch(`/api/${type}`);
                     const data = await res.json();
-                    db[type] = data;
-                    addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
+                    
+                    if (type === 'payment') {
+                        db.payment = data.find(p => p.id === 'promptpay') || { id: 'promptpay', account_name: '', promptpay_number: '' };
+                        addLog(`โหลดข้อมูลการชำระเงินสำเร็จ`, 'success');
+                    } else {
+                        db[type] = data;
+                        addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
+                    }
                 } catch(e) { 
-                    db[type] = []; 
+                    if (type !== 'payment') db[type] = []; 
                     connected = false; 
                     addLog(`โหลด ${type} ล้มเหลว: ${e.message}`, 'error'); 
                 }
@@ -534,7 +586,7 @@
 
         function showTab(tabName) {
             localStorage.setItem('active_tab', tabName);
-            ['orders','products','partners','categories'].forEach(t => {
+            ['orders','products','partners','categories','transactions'].forEach(t => {
                 const sec = document.getElementById('section-'+t);
                 if (sec) sec.classList.add('hidden');
                 const btn = document.querySelector(`.nav-btn[data-tab="${t}"]`);
@@ -547,16 +599,35 @@
         }
 
         function openModal(type, id = null) {
-            activeModal.type = type; 
+            activeModal.type = type;
             activeModal.id = id;
             const modalBox = document.querySelector('#item-modal .modal-card');
             if (type === 'products') modalBox.classList.remove('compact'); else modalBox.classList.add('compact');
+
             if (id) {
-                activeModal.data = JSON.parse(JSON.stringify(db[type].find(i => i.id == id)));
+                const item = db[type].find(i => i.id == id);
+                activeModal.data = JSON.parse(JSON.stringify(item));
+                
+                // 🛑 CRITICAL: Ensure category_names is an array
+                if (type === 'partners') {
+                    if (!activeModal.data.category_names) {
+                        activeModal.data.category_names = [];
+                    } else if (typeof activeModal.data.category_names === 'string') {
+                        try {
+                            activeModal.data.category_names = JSON.parse(activeModal.data.category_names);
+                        } catch(e) {
+                            activeModal.data.category_names = activeModal.data.category_names.split(',').map(s => s.trim());
+                        }
+                    }
+                    if (!Array.isArray(activeModal.data.category_names)) {
+                        activeModal.data.category_names = [];
+                    }
+                }
+                
                 document.getElementById('modal-title').innerText = `แก้ไข${type==='products'?'สินค้า':type==='partners'?'พาร์ทเนอร์':'หมวดหมู่'}`;
             } else {
                 activeModal.data = type === 'products' ? { id: Date.now(), name: '', price: 0, partnerIds: [], category: '', imageUrl: '', emoji: '🍹' } : 
-                                   type === 'partners' ? { id: 'shop-'+Math.floor(100000+Math.random()*900000), name: '' } : 
+                                   type === 'partners' ? { id: 'shop-'+Math.floor(100000+Math.random()*900000), name: '', category_names: [] } : 
                                    { id: Date.now(), name: '', order_index: 0 };
                 document.getElementById('modal-title').innerText = `เพิ่มใหม่`;
             }
@@ -585,15 +656,19 @@
                             <option value="">-- เลือก --</option>
                             ${db.categories.map(c => `<option value="${c.name}" ${d.category==c.name?'selected':''}>${c.name}</option>`).join('')}
                         </select></div>
-                    </div>
-                    <label>ร้านที่แสดงผล</label>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px">
-                        ${db.partners.map(p => `<div class="partner-pill ${d.partnerIds.includes(p.id)?'active':''}" onclick="toggleModalPart('${p.id}', this)">${p.name}</div>`).join('')}
                     </div>`;
             } else if (activeModal.type === 'partners') {
+                const selectedNames = Array.isArray(d.category_names) ? d.category_names : [];
                 content.innerHTML = `
                     <label>รหัสร้าน (ID)</label><input value="${d.id}" oninput="activeModal.data.id=this.value" ${activeModal.id ? 'readonly' : ''}>
-                    <label>ชื่อร้าน</label><input value="${d.name}" oninput="activeModal.data.name=this.value">`;
+                    <label>ชื่อร้าน</label><input value="${d.name}" oninput="activeModal.data.name=this.value">
+                    <label>หมวดหมู่ที่จะแสดงในร้านนี้ (คลิกเพื่อเลือก)</label>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px">
+                        ${db.categories.map(c => {
+                            const isActive = selectedNames.includes(c.name);
+                            return `<div class="partner-pill ${isActive ? 'active' : ''}" data-name="${c.name}" onclick="togglePartnerCategory('${c.name}', this)">${c.name}</div>`;
+                        }).join('')}
+                    </div>`;
             } else {
                 content.innerHTML = `<label>ชื่อหมวดหมู่</label><input value="${d.name}" onchange="activeModal.data.name=this.value">`;
             }
@@ -606,6 +681,19 @@
             else { activeModal.data.partnerIds.push(id); el.classList.add('active'); }
         }
 
+        function togglePartnerCategory(name, el) {
+            if (!activeModal.data.category_names) activeModal.data.category_names = [];
+            const names = activeModal.data.category_names;
+            const idx = names.indexOf(name);
+            if (idx > -1) {
+                names.splice(idx, 1);
+                el.classList.remove('active');
+            } else {
+                names.push(name);
+                el.classList.add('active');
+            }
+        }
+
         async function handleModalUpload(input) {
             if (!input.files[0]) return;
             const fd = new FormData(); fd.append('image', input.files[0]);
@@ -615,12 +703,93 @@
         }
 
         async function saveModalItem() {
-            const res = await fetch(`/api/${activeModal.type}`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(db[activeModal.type].map(i => i.id == activeModal.data.id ? activeModal.data : i).concat(db[activeModal.type].some(i => i.id == activeModal.data.id) ? [] : [activeModal.data])) 
+            const type = activeModal.type;
+            const currentData = activeModal.data;
+            
+            if (type === 'partners' && (!currentData.id || !currentData.name)) {
+                showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+                return;
+            }
+
+            try {
+                // บันทึกเฉพาะข้อมูลชุดนี้ชุดเดียวเพื่อความถูกต้อง
+                const res = await fetch(`/api/${type}`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify(currentData) 
+                });
+                
+                const result = await res.json();
+                if (res.ok && result.success) { 
+                    showToast('บันทึกสำเร็จ'); 
+                    closeModal(); 
+                    // รอสักครู่ก่อนโหลดข้อมูลใหม่เพื่อให้ Supabase อัปเดตเสร็จสมบูรณ์
+                    setTimeout(loadData, 500); 
+                } else {
+                    showToast('บันทึกไม่สำเร็จ: ' + (result.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+            }
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            const card = modal.querySelector('.modal-card');
+            card.classList.add('closing');
+            setTimeout(() => { modal.classList.add('hidden'); card.classList.remove('closing'); }, 300);
+        }
+
+        function showConfirm(title, msg, onConfirm) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-msg').innerText = msg;
+            const btn = document.getElementById('confirm-submit-btn');
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.onclick = () => { onConfirm(); closeConfirmModal(); };
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        async function addPpNumber() {
+            const nameEl = document.getElementById('new-pp-name');
+            const numEl = document.getElementById('new-pp-input');
+            const name = nameEl.value.trim();
+            const num = numEl.value.trim().replace(/\D/g, ''); 
+            
+            if (!name || !num) { showToast("กรุณากรอกชื่อและเลขพร้อมเพย์", "error"); return; }
+            if (num.length !== 10 && num.length !== 13) { showToast("เลขพร้อมเพย์ต้องมี 10 หรือ 13 หลักเท่านั้น", "error"); return; }
+
+            await savePaymentSettings(name, num);
+            nameEl.value = ''; numEl.value = '';
+        }
+
+        async function removePpNumber() {
+            showConfirm('เปลี่ยนข้อมูลการโอนเงิน?', 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชุดนี้เพื่อตั้งค่าใหม่?', async () => {
+                try {
+                    const res = await fetch('/api/payment/promptpay', { method: 'DELETE' });
+                    if (res.ok) {
+                        showToast('ลบข้อมูลการโอนเงินสำเร็จ');
+                        await loadData();
+                    } else {
+                        showToast('ไม่สามารถลบข้อมูลได้', 'error');
+                    }
+                } catch (e) {
+                    showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+                }
             });
-            if (res.ok) { closeModal(); await loadData(); showToast('บันทึกสำเร็จ'); }
+        }
+
+        async function savePaymentSettings(name, num) {
+            try {
+                const res = await fetch('/api/payment', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: 'promptpay', account_name: name, promptpay_number: num })
+                });
+                const result = await res.json();
+                if (res.ok && result.success) { showToast("บันทึกสำเร็จ"); await loadData(); }
+                else showToast("บันทึกไม่สำเร็จ", "error");
+            } catch(e) { showToast("Error: " + e.message, "error"); }
         }
 
         function renderAll() {
@@ -660,6 +829,9 @@
                             <div onclick="openModal('partners','${p.id}')" style="cursor:pointer; flex:1;">
                                 <div style="font-weight:800;font-size:0.9rem">${p.name}</div>
                                 <div style="font-size:0.7rem;opacity:0.6">${p.id}</div>
+                                <div style="font-size:0.65rem; color:var(--primary); margin-top:5px; font-weight:700;">
+                                    ${(p.category_names || []).length > 0 ? 'หมวดหมู่: ' + p.category_names.join(', ') : 'แสดงทุกหมวดหมู่'}
+                                </div>
                             </div>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn" style="background: var(--slate-50); color: var(--dark); padding: 8px 12px; font-size: 0.75rem;" onclick="event.stopPropagation(); showQrModal('${p.id}', '${p.name}')">QR Code</button>
@@ -700,88 +872,92 @@
                     }
                 }
 
-                // 4. Draw Orders (with Filtering & Stats)
+                // 4. Draw Orders
                 const oList = document.getElementById('orders-list');
                 if (oList) {
                     const filterP = document.getElementById('filter-partner').value;
                     const filterD = document.getElementById('filter-date').value;
                     const searchID = document.getElementById('search-order').value.toLowerCase();
 
-                    // Apply Filters
                     const filteredOrders = db.orders.filter(o => {
                         const orderId = String(o.id || '');
                         const pId = String(o.partnerId || o.partner_id || '');
                         const orderDate = o.timestamp ? o.timestamp.split('T')[0] : '';
-                        
                         const matchPartner = !filterP || pId === filterP;
                         const matchDate = !filterD || orderDate === filterD;
                         const matchSearch = !searchID || orderId.toLowerCase().includes(searchID);
-                        
                         return matchPartner && matchDate && matchSearch;
                     });
 
-                    // Update Stats
                     const totalRevenue = filteredOrders.reduce((sum, o) => sum + (o.total || o.total_amount || 0), 0);
                     const statsContainer = document.getElementById('order-stats-container');
                     if (statsContainer) {
                         statsContainer.innerHTML = `
                             <div style="background: #fff1f2; padding: 10px 20px; border-radius: 15px; border: 1px solid #fee2e2;">
-                                <div style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase;">ออเดอร์ทั้งหมด</div>
+                                <div style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase;">ออเดอร์</div>
                                 <div style="font-size: 1.2rem; font-weight: 800;">${filteredOrders.length}</div>
                             </div>
                             <div style="background: #f0fdf4; padding: 10px 20px; border-radius: 15px; border: 1px solid #dcfce7;">
-                                <div style="font-size: 0.65rem; font-weight: 800; color: #10b981; text-transform: uppercase;">ยอดรวมรายได้</div>
+                                <div style="font-size: 0.65rem; font-weight: 800; color: #10b981; text-transform: uppercase;">รายได้</div>
                                 <div style="font-size: 1.2rem; font-weight: 800;">฿${totalRevenue.toLocaleString()}</div>
-                            </div>
-                        `;
+                            </div>`;
                     }
 
                     if (filteredOrders.length === 0) {
-                        oList.innerHTML = '<div class="item-card" style="text-align:center;padding:50px;opacity:0.5">ไม่พบรายการสั่งซื้อที่ค้นหา</div>';
+                        oList.innerHTML = '<div class="item-card" style="text-align:center;padding:50px;opacity:0.5">ไม่พบข้อมูล</div>';
                     } else {
                         oList.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px;">
-                            ${filteredOrders.map(o => {
-                                let items = [];
-                                try { items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []); } catch(e) { items = []; }
-                                const orderId = o.id || 'N/A';
-                                const partnerId = o.partnerId || o.partner_id || 'Unknown';
-                                const total = o.total || o.total_amount || 0;
-                                const time = o.timestamp ? new Date(o.timestamp).toLocaleString('th-TH') : 'N/A';
-
-                                return `
-                                    <div class="item-card" style="padding: 25px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed var(--slate-200);">
-                                            <div>
-                                                <div style="font-weight: 800; font-size: 1.1rem; color: var(--dark);">ออเดอร์ #${orderId}</div>
-                                                <div style="font-size: 0.8rem; color: var(--slate-500); margin-top: 4px;">
-                                                    ร้าน: <strong>${partnerId}</strong> • ${time}
-                                                </div>
-                                            </div>
-                                            <div style="text-align: right;">
-                                                <div style="font-weight: 800; font-size: 1.3rem; color: var(--primary);">฿${total.toLocaleString()}</div>
-                                                <button class="btn btn-del" style="padding: 5px 12px; font-size: 0.75rem; margin-top: 8px;" onclick="deleteItem('orders','${o.id}')">ลบรายการ</button>
-                                            </div>
+                            ${filteredOrders.map(o => `
+                                <div class="item-card" style="padding: 25px; cursor: default;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--slate-200);">
+                                        <div>
+                                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--dark);">ออเดอร์ #${o.id}</div>
+                                            <div style="font-size: 0.8rem; color: var(--slate-500); margin-top: 4px;">ร้าน: <strong>${o.partnerId || o.partner_id}</strong></div>
                                         </div>
-                                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                                            ${items.map(item => `
-                                                <div style="display: flex; align-items: center; gap: 15px; background: var(--slate-50); padding: 8px 15px; border-radius: 12px;">
-                                                    <div style="width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: white; display: flex; align-items: center; justify-content: center; border: 1px solid var(--slate-200); flex-shrink: 0;">
-                                                        ${item.imageUrl ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 1.2rem;">${item.emoji || '🥤'}</span>`}
-                                                    </div>
-                                                    <div style="flex: 1;">
-                                                        <div style="font-weight: 700; font-size: 0.85rem;">${item.name || 'ไม่ระบุชื่อ'} x ${item.quantity || 1}</div>
-                                                        <div style="font-size: 0.7rem; color: var(--slate-500);">ความหวาน: ${item.sweetness || 'ปกติ'}</div>
-                                                    </div>
-                                                    <div style="font-weight: 700; font-size: 0.85rem; color: var(--dark);">฿${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</div>
-                                                </div>
-                                            `).join('')}
+                                        <div style="text-align: right;">
+                                            <div style="font-weight: 800; font-size: 1.3rem; color: var(--primary);">฿${(o.total || 0).toLocaleString()}</div>
+                                            <button class="btn btn-del" style="padding: 5px 12px; font-size: 0.75rem; margin-top: 8px;" onclick="deleteItem('orders','${o.id}')">ลบ</button>
                                         </div>
                                     </div>
-                                `;
-                            }).join('')}
+                                </div>`).join('')}
                         </div>`;
                     }
                 }
+
+                // 5. Draw PromptPay Settings
+                const ppListEl = document.getElementById('pp-list');
+                const ppInputContainer = document.getElementById('pp-input-container');
+                if (ppListEl) {
+                    const name = db.payment?.account_name || ''; 
+                    const num = db.payment?.promptpay_number || '';
+                    const badge = document.getElementById('pp-count-badge');
+                    if (badge) badge.innerText = `${num ? 1 : 0}/1`;
+                    
+                    if (num) {
+                        ppInputContainer.classList.add('hidden');
+                        ppListEl.innerHTML = `
+                            <div class="payment-display-card" style="background: white; border-radius: 28px; border: 1px solid var(--slate-200); padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.02);">
+                                <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px dashed var(--slate-200);">
+                                    <div style="width: 60px; height: 60px; background: #eff6ff; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem;">📱</div>
+                                    <div style="flex: 1;">
+                                        <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">ข้อมูลพร้อมเพย์</div>
+                                        <div style="font-size: 1.3rem; font-weight: 800; color: var(--dark); letter-spacing: 1px;">${num}</div>
+                                        <div style="font-size: 1rem; font-weight: 600; color: var(--slate-500);">${name}</div>
+                                    </div>
+                                </div>
+                                <div style="text-align: center; background: var(--slate-50); padding: 20px; border-radius: 20px; margin-bottom: 20px;">
+                                    <img src="https://promptpay.io/${num}.png" style="width: 150px; height: 150px; border-radius: 10px; border: 4px solid white;">
+                                </div>
+                                <button class="btn btn-del" style="width: 100%; justify-content: center; height: 50px; font-weight: 800;" onclick="removePpNumber()">
+                                    🔧 เปลี่ยนข้อมูล / แก้ไข
+                                </button>
+                            </div>`;
+                    } else { 
+                        ppInputContainer.classList.remove('hidden'); 
+                        ppListEl.innerHTML = '<div style="padding:40px; opacity:0.5; text-align:center; font-weight: 600;">ยังไม่มีการตั้งค่า</div>'; 
+                    }
+                }
+
             } catch (err) {
                 console.error("Render Error:", err);
                 addLog("เกิดข้อผิดพลาดในการวาดหน้าจอ: " + err.message, "error");
@@ -801,7 +977,21 @@
             modal.classList.remove('hidden');
         }
         function closeQrModal() { document.getElementById('qr-modal').classList.add('hidden'); }
-        async function deleteItem(type, id) { if (confirm('ลบข้อมูลนี้?')) { await fetch(`/api/${type}/${id}`, {method: 'DELETE'}); loadData(); } }
+        async function deleteItem(type, id) { 
+            showConfirm('ลบข้อมูลนี้?', `คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชุดนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
+                try {
+                    const res = await fetch(`/api/${type}/${id}`, {method: 'DELETE'});
+                    if (res.ok) {
+                        showToast('ลบข้อมูลสำเร็จ');
+                        loadData();
+                    } else {
+                        showToast('ไม่สามารถลบข้อมูลได้', 'error');
+                    }
+                } catch (e) {
+                    showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+                }
+            });
+        }
     </script>
 </body>
 </html>

@@ -4,8 +4,8 @@ import './App.css'
 import { supabase } from './supabaseClient'
 
 // --- Interfaces ---
-interface Partner { id: string; name: string; thai_name?: string; logo?: string; promptpay_id?: string; }
-interface Product { id: number; partnerIds: string[]; name: string; price: number; emoji: string; category: string; imageUrl?: string; }
+interface Partner { id: string; name: string; thai_name?: string; logo?: string; promptpay_id?: string; category_names?: string[]; }
+interface Product { id: number; name: string; price: number; emoji: string; category: string; imageUrl?: string; }
 interface CartItem extends Product { quantity: number; sweetness: string; }
 interface Category { id: number; name: string; order_index: number; }
 interface Order { id: number; partnerId: string; items: any; total: number; status: 'waiting' | 'paid' | 'preparing' | 'ready' | 'cancelled'; timestamp: string; deliveryInfo: any; }
@@ -108,14 +108,34 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       if (!partnerId) return;
       setLoading(true);
       try {
+        // 1. Fetch ALL products (no longer filtered by partnerIds)
+        const { data: prodData } = await supabase.from('products').select('*').order('id', { ascending: true });
+        const currentProducts = prodData || [];
+        setProducts(currentProducts);
+
+        // 2. Fetch all categories
         const { data: catData } = await supabase.from('categories').select('name').order('order_index', { ascending: true });
-        if (catData) setCategories(['All', ...catData.map(c => c.name)]);
-        const { data: prodData } = await supabase.from('products').select('*').contains('partnerIds', [partnerId]).order('id', { ascending: true });
-        if (prodData) setProducts(prodData);
+        
+        if (catData) {
+          // 3. Determine which categories to show
+          const selectedByAdmin = partner?.category_names || [];
+          
+          let filtered;
+          if (selectedByAdmin.length > 0) {
+            // If admin explicitly chose categories, use those
+            filtered = catData.filter(c => selectedByAdmin.includes(c.name));
+          } else {
+            // SMART FALLBACK: Only show categories that actually have products in this store
+            const availableCatNames = [...new Set(currentProducts.map(p => p.category))];
+            filtered = catData.filter(c => availableCatNames.includes(c.name));
+          }
+          
+          setCategories(['All', ...filtered.map(c => c.name)]);
+        }
       } catch (e) { console.error(e); } finally { setLoading(false); }
     }
     fetchData();
-  }, [partnerId]);
+  }, [partnerId, partner]);
 
   const openProductModal = (product: Product) => { setActiveProduct(product); setIsModalClosing(false); setTempSweetness('100%'); };
   const closeProductModal = () => { setIsModalClosing(true); setTimeout(() => { setActiveProduct(null); setIsModalClosing(false); }, 300); };
@@ -176,7 +196,12 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   };
 
   const cartTotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-  const filteredProducts = selectedCategory === 'All' ? products : products.filter(p => p.category === selectedCategory);
+  const allowedCats = partner?.category_names || [];
+  const filteredProducts = products.filter(p => {
+    const isCategoryAllowed = allowedCats.length === 0 || allowedCats.includes(p.category);
+    const matchesFilter = selectedCategory === 'All' || p.category === selectedCategory;
+    return isCategoryAllowed && matchesFilter;
+  });
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
   const targetPP = (partner?.promptpay_id || ppList[0] || '0958412521').replace(/[^0-9]/g, '');
 
@@ -374,19 +399,35 @@ function AdminDashboard() {
   };
 
   const openEditModal = (type: string, item: any = null) => {
-    if (item) setEditingItem({ ...item, _type: type });
+    if (item) setEditingItem({ ...item, _type: type, category_names: item.category_names || [] });
     else {
-      if (type === 'partners') setEditingItem({ id: 'shop-'+Math.floor(Math.random()*900000), name: '', promptpay_id: '', _type: type });
+      if (type === 'partners') setEditingItem({ id: 'shop-'+Math.floor(Math.random()*900000), name: '', promptpay_id: '', category_names: [], _type: type });
       else if (type === 'categories') setEditingItem({ name: '', order_index: db.categories.length + 1, _type: type });
-      else setEditingItem({ name: '', price: 0, category: '', partnerIds: [], _type: type });
+      else setEditingItem({ name: '', price: 0, category: '', _type: type });
     }
     setIsModalOpen(true);
   };
 
   const saveItem = async () => {
     const { _type, ...data } = editingItem;
-    const { error } = await supabase.from(_type).upsert(data);
-    if (!error) { setIsModalOpen(false); loadData(); } else alert(error.message);
+    try {
+      // 🛑 CRITICAL: Ensure category_names is handled as an array for partners
+      const payload = { ...data };
+      if (_type === 'partners' && data.category_names) {
+        payload.category_names = Array.isArray(data.category_names) ? data.category_names : [];
+      }
+
+      const { error } = await supabase.from(_type).upsert(payload);
+      if (!error) {
+        setToast('✅ บันทึกข้อมูลสำเร็จ');
+        setIsModalOpen(false);
+        setTimeout(loadData, 500); // Small delay for Supabase consistency
+      } else {
+        alert('❌ ไม่สามารถบันทึกได้: ' + error.message);
+      }
+    } catch (e: any) {
+      alert('❌ เกิดข้อผิดพลาด: ' + e.message);
+    }
   };
 
   if (!session) return null;
@@ -424,7 +465,7 @@ function AdminDashboard() {
         )}
         {activeTab === 'partners' && (
           <section><div className="header"><h1>จัดการพาร์ทเนอร์</h1><button className="btn btn-primary" onClick={() => openEditModal('partners')}>+ เพิ่มร้านใหม่</button></div>
-            <div className="item-grid-admin">{db.partners.map(p => (<div key={p.id} className="item-card"><div className="admin-prod-row" style={{display:'flex', alignItems:'center', gap:'15px'}}><div style={{flex:1}}><strong>{p.name}</strong><br/><small>ID: {p.id} | PromptPay: {p.promptpay_id || 'ยังไม่ตั้งค่า'}</small></div><div style={{display:'flex', gap:'5px'}}><button className="btn btn-dark" onClick={() => openEditModal('partners', p)}>📝</button><button className="btn btn-del" onClick={() => handleDelete('partners', p.id)}>🗑️</button></div></div></div>))}</div></section>
+            <div className="item-grid-admin">{db.partners.map(p => (<div key={p.id} className="item-card"><div className="admin-prod-row" style={{display:'flex', alignItems:'center', gap:'15px'}}><div style={{flex:1}}><strong>{p.name}</strong><br/><small>ID: {p.id} | PromptPay: {p.promptpay_id || 'ยังไม่ตั้งค่า'}</small><br/><small style={{color:'var(--primary)'}}>หมวดหมู่: {(p.category_names || []).join(', ') || 'ทั้งหมด'}</small></div><div style={{display:'flex', gap:'5px'}}><button className="btn btn-dark" onClick={() => openEditModal('partners', p)}>📝</button><button className="btn btn-del" onClick={() => handleDelete('partners', p.id)}>🗑️</button></div></div></div>))}</div></section>
         )}
         {activeTab === 'categories' && (
           <section><div className="header"><h1>จัดการหมวดหมู่</h1><button className="btn btn-primary" onClick={() => openEditModal('categories')}>+ เพิ่มหมวดหมู่</button></div>
@@ -447,7 +488,17 @@ function AdminDashboard() {
         <div className="modal-overlay" style={{zIndex: 5000}}><div className="product-modal" style={{padding:'30px', maxWidth:'500px'}}><button className="close-modal" onClick={() => setIsModalOpen(false)}>✕</button>
           <h2>{editingItem.id && editingItem._type !== 'partners' ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูลใหม่'}</h2>
           <div className="checkout-form" style={{marginTop:'20px'}}>
-            {editingItem._type === 'partners' && (<><div className="form-group"><label>รหัสร้าน (ID)</label><input value={editingItem.id} readOnly={!!editingItem.created_at} onChange={e => setEditingItem({...editingItem, id: e.target.value})} /></div><div className="form-group"><label>ชื่อร้าน</label><input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} /></div><div className="form-group"><label>เบอร์ PromptPay สาขา</label><input value={editingItem.promptpay_id || ''} onChange={e => setEditingItem({...editingItem, promptpay_id: e.target.value})} /></div></>)}
+            {editingItem._type === 'partners' && (<><div className="form-group"><label>รหัสร้าน (ID)</label><input value={editingItem.id} readOnly={!!editingItem.created_at} onChange={e => setEditingItem({...editingItem, id: e.target.value})} /></div><div className="form-group"><label>ชื่อร้าน</label><input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} /></div><div className="form-group"><label>เบอร์ PromptPay สาขา</label><input value={editingItem.promptpay_id || ''} onChange={e => setEditingItem({...editingItem, promptpay_id: e.target.value})} /></div>
+            <div className="form-group"><label>หมวดหมู่ที่แสดง</label><div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginTop:'10px'}}>
+              {db.categories.map(c => (
+                <div key={c.id} className={`partner-pill ${(editingItem.category_names || []).includes(c.name) ? 'active' : ''}`} onClick={() => {
+                  const names = editingItem.category_names || [];
+                  const newNames = names.includes(c.name) ? names.filter((n: string) => n !== c.name) : [...names, c.name];
+                  setEditingItem({...editingItem, category_names: newNames});
+                }}>{c.name}</div>
+              ))}
+            </div></div>
+            </>)}
             {editingItem._type === 'categories' && (<><div className="form-group"><label>ชื่อหมวดหมู่</label><input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} /></div><div className="form-group"><label>ลำดับการแสดงผล</label><input type="number" value={editingItem.order_index} onChange={e => setEditingItem({...editingItem, order_index: Number(e.target.value)})} /></div></>)}
             {editingItem._type === 'products' && (<><div className="form-group"><label>ชื่อสินค้า</label><input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} /></div><div className="form-group"><label>ราคา</label><input type="number" value={editingItem.price} onChange={e => setEditingItem({...editingItem, price: Number(e.target.value)})} /></div><div className="form-group"><label>หมวดหมู่</label><select value={editingItem.category} onChange={e => setEditingItem({...editingItem, category: e.target.value})}><option value="">เลือกหมวดหมู่</option>{db.categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div></>)}
             <button className="checkout-button" style={{marginTop:'20px'}} onClick={saveItem}>บันทึกข้อมูล</button>

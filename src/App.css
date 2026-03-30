@@ -389,6 +389,22 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
   z-index: 10; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
+/* 🏷️ Partner Category Pills */
+.partner-pill {
+  padding: 10px 18px;
+  border-radius: 100px;
+  background: var(--light);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 4px;
+  display: inline-block;
+  transition: var(--transition);
+}
+.partner-pill:hover { border-color: var(--primary); transform: translateY(-2px); }
+.partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); }
+
 /* 📱 Mobile Optimization */
 @media (max-width: 768px) {
   .navbar { padding: 1rem 20px; }

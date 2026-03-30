@@ -80,13 +80,13 @@ app.post('/api/:table', async (req: Request, res: Response) => {
     if (!supabase) return res.status(500).json({ error: 'X' });
     const { table } = req.params;
     let payload = req.body;
-    if (table === 'products') {
-        payload = (Array.isArray(payload) ? payload : [payload]).map((p: any) => {
-            const { partnerId, ...rest } = p;
-            return { ...rest, partnerIds: p.partnerIds || (partnerId ? [partnerId] : []) };
-        });
-    }
+    
+    console.log(`📦 Incoming POST for table: ${table}`);
+    console.log('Payload:', JSON.stringify(payload, null, 2));
+
     const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' });
+    if (error) console.error(`❌ Supabase Error (${table}):`, error.message);
+    
     res.json({ success: !error, error: error?.message });
 });
 
