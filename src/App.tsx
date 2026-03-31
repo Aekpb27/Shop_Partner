@@ -52,7 +52,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   });
 
   const [paymentTimeLeft, setPaymentTimer] = useState(900);
-  const [ppList, setPpList] = useState<string[]>(['0958412521']);
+  const [paymentData, setPaymentData] = useState({ account_name: '', promptpay_number: '0958412521' });
   const [flyingItem, setFlyingItem] = useState<{x: number, y: number, targetX: number, targetY: number, emoji: string} | null>(null);
   const toastTimeoutRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
@@ -77,11 +77,18 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   };
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      const { data } = await supabase.from('settings').select('*').eq('id', 'payment').single();
-      if (data && data.value.promptpay_numbers) setPpList(data.value.promptpay_numbers);
+    const fetchPaymentInfo = async () => {
+      try {
+        const { data, error } = await supabase.from('payment').select('*').eq('id', 'promptpay').single();
+        if (data && !error) {
+          setPaymentData({ 
+            account_name: data.account_name || '', 
+            promptpay_number: data.promptpay_number || '0958412521' 
+          });
+        }
+      } catch (e) { console.error("Error fetching payment info:", e); }
     };
-    fetchSettings();
+    fetchPaymentInfo();
   }, []);
 
   useEffect(() => {
@@ -184,7 +191,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       const orderData = {
         id: activeOrderId, partnerId: partnerId,
         items: cart.map(i => ({ name: i.name, quantity: i.quantity, sweetness: i.sweetness, price: i.price, imageUrl: i.imageUrl, emoji: i.emoji })),
-        deliveryInfo: { ...deliveryInfo, slipUrl: fileName }, total: cartTotal, status: 'paid', timestamp: new Date().toISOString()
+        deliveryInfo: { ...deliveryInfo, slipUrl: fileName }, total: cartTotal, status: 'waiting', timestamp: new Date().toISOString()
       };
       const { error } = await supabase.from('orders').insert([orderData]);
       if (!error) {
@@ -203,7 +210,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     return isCategoryAllowed && matchesFilter;
   });
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
-  const targetPP = (partner?.promptpay_id || ppList[0] || '0958412521').replace(/[^0-9]/g, '');
+  const targetPP = (partner?.promptpay_id || paymentData.promptpay_number || '0958412521').replace(/[^0-9]/g, '');
 
   if (!partner && !loading) return <div className="loading-screen">404 Not Found - ไม่พบร้านค้า</div>;
   if (loading) return <div className="loading-screen">กำลังเตรียมข้อมูล... 🐉</div>;
@@ -307,13 +314,46 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
               {checkoutStep === 'payment' && (
                 <div className="payment-step">
                   <div className="timer-badge">กรุณาชำระเงินภายใน <span>{formatTime(paymentTimeLeft)}</span></div>
-                  <div className="qr-container"><img src={`https://promptpay.io/${targetPP}/${cartTotal}.png`} alt="PromptPay QR" style={{width: '250px', height: '250px', display: 'block', margin: '0 auto'}} /><div className="qr-label">สแกนจ่ายด้วยแอปธนาคารทุกแอป</div></div>
+                  <div className="qr-container">
+                    <div style={{textAlign: 'center', marginBottom: '15px'}}>
+                      <div style={{fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px'}}>ชื่อบัญชี</div>
+                      <div style={{fontSize: '1.2rem', fontWeight: 800, color: 'var(--dark)'}}>{paymentData.account_name || 'Dragonz Cha'}</div>
+                    </div>
+                    <img src={`https://promptpay.io/${targetPP}/${cartTotal}.png`} alt="PromptPay QR" style={{width: '250px', height: '250px', display: 'block', margin: '0 auto', borderRadius: '20px', border: '8px solid white', boxShadow: '0 10px 30px rgba(0,0,0,0.1)'}} />
+                    <div className="qr-label">สแกนจ่ายด้วยแอปธนาคารทุกแอป</div>
+                  </div>
                   <div className="payment-details"><div className="row"><span>ยอดโอนทั้งหมด:</span><strong style={{color:'var(--primary)', fontSize:'1.4rem'}}>฿{cartTotal}</strong></div><div className="row"><span>รหัสออเดอร์:</span><strong>#{activeOrderId}</strong></div></div>
                   <div className="upload-section"><label className="upload-btn"><input type="file" accept="image/*" style={{display:'none'}} onChange={handleInformPayment} /><span>📸 อัปโหลดสลิปเพื่อยืนยัน</span></label></div>
                 </div>
               )}
               {checkoutStep === 'status' && (
-                <div className="status-step"><div className="status-hero"><div className="dragon-pulse">🐉</div><h3>ส่งข้อมูลการโอนเรียบร้อย</h3><p>รอแอดมินตรวจสอบยอดเงินสักครู่ครับ</p></div><div className="status-timeline"><div className="step active"><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div><div className="step active"><span>2</span> <div>รอแอดมินยืนยันยอด</div></div><div className="step"><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div><div className="step"><span>4</span> <div>สินค้าพร้อมรับ</div></div></div><button className="btn btn-dark" style={{width:'100%', marginTop:'30px', padding:'15px', borderRadius:'15px'}} onClick={() => { clearSession(); }}>สั่งออเดอร์ใหม่</button></div>
+                <div className="status-step">
+                  <div className="status-hero"><div className="dragon-pulse">🐉</div><h3>ส่งข้อมูลการโอนเรียบร้อย</h3><p>รอแอดมินตรวจสอบยอดเงินสักครู่ครับ</p></div>
+                  <div className="status-timeline"><div className="step active"><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div><div className="step active"><span>2</span> <div>รอแอดมินยืนยันยอด</div></div><div className="step"><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div><div className="step"><span>4</span> <div>สินค้าพร้อมรับ</div></div></div>
+                  
+                  <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
+                    <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>สรุปรายการที่คุณสั่ง:</div>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                      {cart.length > 0 ? cart.map((item, idx) => (
+                        <div key={idx} style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                          <div style={{width: '40px', height: '40px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                            {item.imageUrl ? <img src={item.imageUrl} style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : <span style={{fontSize: '1.2rem'}}>{item.emoji}</span>}
+                          </div>
+                          <div style={{flex: 1, fontSize: '0.9rem', fontWeight: 600}}>
+                            {item.name} <small style={{color: 'var(--slate-400)'}}>x{item.quantity}</small>
+                          </div>
+                          <div style={{fontWeight: 700}}>฿{item.price * item.quantity}</div>
+                        </div>
+                      )) : <p style={{textAlign:'center', fontSize:'0.8rem', opacity:0.5}}>กำลังโหลดรายการ...</p>}
+                    </div>
+                    <div style={{marginTop: '15px', paddingTop: '15px', borderTop: '1px dashed var(--slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <span style={{fontWeight: 700, color: 'var(--slate-500)'}}>ยอดรวมทั้งสิ้น</span>
+                      <strong style={{color: 'var(--primary)', fontSize: '1.2rem'}}>฿{cartTotal}</strong>
+                    </div>
+                  </div>
+
+                  <button className="btn btn-dark" style={{width:'100%', marginTop:'30px', padding:'15px', borderRadius:'15px'}} onClick={() => { clearSession(); }}>สั่งออเดอร์ใหม่</button>
+                </div>
               )}
             </div>
             {checkoutStep !== 'status' && cart.length > 0 && (
@@ -353,12 +393,13 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('dragonz_admin_tab') || 'orders');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [db, setDb] = useState<{products: Product[], partners: Partner[], categories: Category[], orders: Order[]}>({ products: [], partners: [], categories: [], orders: [] });
+  const [payment, setPayment] = useState<{account_name: string, promptpay_number: string} | null>(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
   const [orderAlerts, setOrderAlerts] = useState<any[]>([]);
-  const [settings, setSettings] = useState({ promptpay_numbers: [] as string[] });
   const [toast, setToast] = useState<string | null>(null);
-  const [newPp, setNewPp] = useState('');
+  const [newPpName, setNewPpName] = useState('');
+  const [newPpNumber, setNewPpNumber] = useState('');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{title: string, msg: string, onConfirm: () => void} | null>(null);
@@ -377,15 +418,40 @@ function AdminDashboard() {
   const loadData = async () => {
     addLog("โหลดข้อมูล...");
     try {
-      const [prod, part, cat, ord, sett] = await Promise.all([
+      const [prod, part, cat, ord, pay] = await Promise.all([
         supabase.from('products').select('*').order('id', { ascending: true }),
         supabase.from('partners').select('*'),
         supabase.from('categories').select('*').order('order_index', { ascending: true }),
         supabase.from('orders').select('*').order('timestamp', { ascending: false }),
-        supabase.from('settings').select('*').eq('id', 'payment').single()
+        supabase.from('payment').select('*').eq('id', 'promptpay').maybeSingle()
       ]);
-      setDb({ products: prod.data || [], partners: part.data || [], categories: cat.data || [], orders: ord.data || [] });
-      if (sett.data) setSettings(sett.data.value);
+      
+      console.log("[DEBUG] Raw orders data from Supabase:", ord.data);
+
+      const parsedOrders = (ord.data || []).map(o => {
+        if (typeof o.items === 'string') {
+          try { 
+            o.items = JSON.parse(o.items); 
+          } catch(e) { 
+            console.error(`[DEBUG] Failed to parse items for order #${o.id}:`, e);
+            o.items = []; 
+          }
+        }
+        return o;
+      });
+      
+      console.log("[DEBUG] Parsed orders data before setting state:", parsedOrders);
+
+      const newDb = { products: prod.data || [], partners: part.data || [], categories: cat.data || [], orders: parsedOrders };
+      console.log("[DEBUG] Final DB object to be set:", newDb);
+
+      setDb(newDb);
+
+      if (pay.data) {
+        setPayment(pay.data);
+        setNewPpName(pay.data.account_name || '');
+        setNewPpNumber(pay.data.promptpay_number || '');
+      }
     } catch (e: any) { addLog("Error: " + e.message); }
     finally { setLoading(false); }
   };
@@ -402,32 +468,46 @@ function AdminDashboard() {
     }).subscribe();
     return () => { subscription.unsubscribe(); channel.unsubscribe(); };
   }, [navigate, db.partners]);
+const savePayment = async () => {
+  if (!newPpName || !newPpNumber) {
+    showNotification('❌ กรุณากรอกข้อมูลให้ครบถ้วน');
+    return;
+  }
+  const payload = { 
+    id: 'promptpay', 
+    account_name: newPpName, 
+    promptpay_number: newPpNumber.replace(/\D/g, '')
+  };
+  const { error } = await supabase.from('payment').upsert(payload);
+  if (!error) {
+    setPayment(payload);
+    showNotification('✅ บันทึกข้อมูลการชำระเงินสำเร็จ');
+  } else {
+    showNotification('❌ บันทึกไม่สำเร็จ: ' + error.message);
+  }
+};
 
-  const saveSettings = async (newList: string[]) => {
-    const { error } = await supabase.from('settings').upsert({ id: 'payment', value: { ...settings, promptpay_numbers: newList } });
-    if (!error) { setSettings({...settings, promptpay_numbers: newList}); showNotification('✅ บันทึกสำเร็จ'); }
-  };
+const updateStatus = async (id: number, status: string) => {
+  const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+  if (!error) {
+    showNotification('✅ อัปเดตสถานะออเดอร์สำเร็จ');
+    loadData();
+  } else {
+    alert('❌ อัปเดตไม่สำเร็จ: ' + error.message);
+  }
+};
 
-  const addPpNumber = () => { if (newPp) { saveSettings([...settings.promptpay_numbers, newPp]); setNewPp(''); } };
-  const removePpNumber = (num: string) => {
-    showConfirm('ลบเบอร์ PromptPay?', `คุณต้องการลบเบอร์ ${num} ออกจากรายการใช่หรือไม่?`, () => {
-      saveSettings(settings.promptpay_numbers.filter(n => n !== num));
-    });
-  };
-  
-  const updateStatus = async (id: number, status: string) => { await supabase.from('orders').update({ status }).eq('id', id); loadData(); };
-  
-  const handleDelete = async (table: string, id: any) => {
-    showConfirm('ยืนยันการลบ?', `คุณต้องการลบข้อมูลนี้ออกจากตาราง ${table} ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      if (!error) {
-        showNotification('✅ ลบข้อมูลสำเร็จ');
-        loadData();
-      } else {
-        alert('❌ ไม่สามารถลบได้: ' + error.message);
-      }
-    });
-  };
+const handleDelete = async (table: string, id: any) => {
+  showConfirm('ยืนยันการลบ?', `คุณต้องการลบข้อมูลนี้ออกจากตาราง ${table} ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (!error) {
+      showNotification('✅ ลบข้อมูลสำเร็จ');
+      loadData();
+    } else {
+      alert('❌ ไม่สามารถลบได้: ' + error.message);
+    }
+  });
+};
 
   const handleLogout = () => {
     showConfirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบจัดการใช่หรือไม่?', () => {
@@ -472,7 +552,22 @@ function AdminDashboard() {
   return (
     <div className="admin-layout">
       {toast && <ToastNotification message={toast} />}
-      <div id="notification-container">{orderAlerts.map(alert => (<div key={alert.id} className="order-alert" onClick={() => { setOrderAlerts(prev => prev.filter(a => a.id !== alert.id)); notificationAudio.current.pause(); }}><div className="close-alert">✕</div><h4>🔔 ออเดอร์ใหม่!</h4><p>#{alert.id} จากร้าน: <strong>{alert.partnerName}</strong></p><p style={{fontWeight:800, color:'var(--primary)'}}>ยอด: ฿{alert.total}</p><div className="timer-bar-container"><div className="timer-bar"></div></div></div>))}</div>
+      <div id="notification-container">{orderAlerts.map(alert => (
+        <div key={alert.id} className="order-alert" onClick={() => { setOrderAlerts(prev => prev.filter(a => a.id !== alert.id)); notificationAudio.current.pause(); }}>
+          <div className="close-alert">✕</div>
+          <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+            <div style={{width: '50px', height: '50px', borderRadius: '12px', background: 'var(--slate-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--slate-100)'}}>
+              {alert.items?.[0]?.imageUrl ? <img src={alert.items[0].imageUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <span style={{fontSize:'1.5rem'}}>{alert.items?.[0]?.emoji || '🔔'}</span>}
+            </div>
+            <div style={{flex: 1}}>
+              <h4 style={{margin: 0}}>ออเดอร์ใหม่!</h4>
+              <p style={{fontSize: '0.8rem', margin: '2px 0'}}>#{alert.id} จาก: <strong>{alert.partnerName}</strong></p>
+              <p style={{fontWeight:800, color:'var(--primary)', fontSize: '0.9rem'}}>ยอด: ฿{alert.total}</p>
+            </div>
+          </div>
+          <div className="timer-bar-container"><div className="timer-bar"></div></div>
+        </div>
+      ))}</div>
       
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>{sidebarCollapsed ? '›' : '‹'}</button>
@@ -482,19 +577,123 @@ function AdminDashboard() {
         <button className={`nav-btn ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}><img src="/assets/products.png" className="menu-icon" alt="products" /> <span>จัดการสินค้า</span></button>
         <button className={`nav-btn ${activeTab === 'partners' ? 'active' : ''}`} onClick={() => setActiveTab('partners')}><img src="/assets/partner.png" className="menu-icon" alt="partners" /> <span>พาร์ทเนอร์</span></button>
         <button className={`nav-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}><img src="/assets/category.png" className="menu-icon" alt="categories" /> <span>หมวดหมู่</span></button>
-        <button className={`nav-btn ${activeTab === 'promptpay' ? 'active' : ''}`} onClick={() => setActiveTab('promptpay')}>📱 <span>ตั้งค่า PromptPay</span></button>
+        <button className={`nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}><img src="/assets/transaction.png" style={{width:'20px', height:'20px'}} className="menu-icon" alt="transactions" /> <span>จัดการโอนเงิน</span></button>
         
         <div className="logout-btn"><button className="btn" style={{width:'100%', background:'var(--slate-50)', justifyContent:'center'}} onClick={() => supabase.auth.signOut()}><img src="/assets/logout.png" style={{width:'20px', marginRight:'10px'}} alt="logout" /> <span>ออก</span></button></div>
       </div>
 
       <main className="main-admin">
         {activeTab === 'orders' && (
-          <section><div className="header"><h1>รายการสั่งซื้อ</h1><button className="btn btn-dark" onClick={loadData}>รีเฟรช</button></div>
-            <div className="orders-grid">{db.orders.map(o => (<div key={o.id} className="item-card order-card"><div className="order-header"><div><strong>#{o.id}</strong><br/><small>{o.partnerId} • {new Date(o.timestamp).toLocaleString()}</small></div><div className="order-status-badge" data-status={o.status}>{o.status}</div></div>
-              <div style={{margin:'10px 0', fontSize:'0.85rem'}}><strong>ลูกค้า:</strong> {o.deliveryInfo?.name} ({o.deliveryInfo?.phone})<br/><strong>สลิป:</strong> <a href={supabase.storage.from('product-images').getPublicUrl(o.deliveryInfo?.slipUrl).data.publicUrl} target="_blank" rel="noreferrer" style={{color:'var(--primary)', fontWeight:700}}>ดูรูปสลิป</a></div>
-              <div className="order-items">{(o.items || []).map((item: any, idx: number) => (<div key={idx} className="mini-item"><div>{item.name} x {item.quantity} (หวาน {item.sweetness})</div></div>))}</div>
-              <div style={{display:'flex', gap:'5px', marginTop:'15px'}}><button className="btn btn-primary" onClick={() => updateStatus(o.id, 'preparing')}>เริ่มทำ</button><button className="btn btn-dark" onClick={() => updateStatus(o.id, 'ready')}>เสร็จแล้ว</button></div>
-            </div>))}</div></section>
+          <section>
+            <div className="header"><h1>รายการสั่งซื้อ</h1><button className="btn btn-dark" onClick={loadData}>รีเฟรช</button></div>
+            <div className="orders-grid" style={{gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '30px'}}>
+              {db.orders.map(o => (
+                <div key={o.id} className="item-card order-card" style={{
+                  borderRadius: '28px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  padding: '25px', 
+                  border: o.status === 'preparing' ? '2.5px solid #fbbf24' : o.status === 'ready' ? '2.5px solid #22c55e' : '1px solid var(--border)',
+                  boxShadow: o.status === 'preparing' ? '0 10px 25px -5px rgba(251, 191, 36, 0.2)' : o.status === 'ready' ? '0 10px 25px -5px rgba(34, 197, 94, 0.2)' : 'none'
+                }}>
+                  <div className="order-header" style={{
+                    borderBottom: '1px solid var(--border)', 
+                    padding: '20px 25px',
+                    background: o.status === 'preparing' ? '#fbbf24' : o.status === 'ready' ? '#22c55e' : 'transparent',
+                    margin: (o.status === 'preparing' || o.status === 'ready') ? '-20px -20px 10px -20px' : '0 -20px 10px -20px',
+                    borderRadius: (o.status === 'preparing' || o.status === 'ready') ? '28px 28px 0 0' : '0',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{lineHeight: '1.2'}}>
+                      <span style={{
+                        fontSize: '0.8rem', 
+                        fontWeight: 700, 
+                        textTransform: 'uppercase',
+                        opacity: (o.status === 'preparing' || o.status === 'ready') ? 0.9 : 0.6,
+                        color: (o.status === 'preparing' || o.status === 'ready') ? '#ffffff' : 'var(--slate-500)'
+                      }}>ออเดอร์</span>
+                      <br/>
+                      <strong style={{
+                        fontSize: '1.4rem', 
+                        fontWeight: 800, 
+                        letterSpacing: '-1px',
+                        color: (o.status === 'preparing' || o.status === 'ready') ? '#ffffff' : 'var(--darker)'
+                      }}>#{o.id}</strong>
+                    </div>
+                    <div style={{textAlign: 'right'}}>
+                      <div style={{fontWeight: 800, fontSize: '1.5rem', color: (o.status === 'preparing' || o.status === 'ready') ? '#ffffff' : 'var(--primary)'}}>฿{(o.total || 0).toLocaleString()}</div>
+                      <small style={{
+                        fontSize: '0.7rem',
+                        opacity: (o.status === 'preparing' || o.status === 'ready') ? 0.9 : 0.7,
+                        color: (o.status === 'preparing' || o.status === 'ready') ? '#ffffff' : 'var(--slate-500)'
+                      }}>
+                        {new Date(o.timestamp).toLocaleString()}
+                      </small>
+                    </div>
+                  </div>
+                  <div className="order-body" style={{padding: '15px 20px 10px', flex: 1}}>
+                    {/* 👤 Condensed Info Block */}
+                    <div style={{background: 'var(--slate-50)', padding: '12px 15px', borderRadius: '15px', border: '1px solid var(--border)', marginBottom: '15px'}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px'}}>
+                        <span style={{fontSize: '1.2rem'}}>👤</span>
+                        <div style={{fontSize: '0.95rem', fontWeight: 800, color: 'var(--darker)'}}>{o.deliveryInfo?.name} <small style={{fontWeight: 500, color: 'var(--slate-500)'}}>({o.deliveryInfo?.phone})</small></div>
+                      </div>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '10px', borderTop: '1px dashed var(--border)', paddingTop: '8px'}}>
+                        <span style={{fontSize: '1rem'}}>🏪</span>
+                        <div style={{fontSize: '0.85rem', fontWeight: 700, color: '#9f1239'}}>สาขา: {db.partners.find(p => p.id === o.partnerId)?.name || o.partnerId}</div>
+                      </div>
+                    </div>
+
+                    <div className="order-items-admin" style={{
+                      background: 'white', 
+                      padding: '10px 15px', 
+                      borderRadius: '12px', 
+                      border: '1px solid var(--border)',
+                      maxHeight: o.items?.length > 3 ? '215px' : 'none',
+                      overflowY: 'auto'
+                    }}>
+                      <ul style={{listStyle:'none', padding:0, margin:0}}>
+                        {(o.items || []).map((item: any, idx: number) => (
+                          <li key={idx} style={{borderBottom: idx === (o.items.length - 1) ? 'none' : '1px solid var(--slate-50)', padding: '10px 0'}}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                              <div style={{width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--light)', border: '1px solid var(--border)'}}>
+                                {item.imageUrl ? <img src={item.imageUrl} alt={item.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : <span style={{fontSize: '1.5rem'}}>{item.emoji}</span>}
+                              </div>
+                              <div style={{flex: 1, fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2}}>
+                                {item.name} <span style={{color: 'var(--primary)'}}>x{item.quantity}</span>
+                                <div style={{fontSize: '0.8rem', color: 'var(--slate-500)', fontWeight: 500}}>หวาน {item.sweetness} • ฿{item.price}</div>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="order-footer" style={{paddingTop: '15px', marginTop: '15px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '8px'}}>
+                    <div style={{flexShrink: 0}}>
+                        <div className="order-status-badge" data-status={o.status} style={{whiteSpace: 'nowrap', fontSize: '0.65rem', padding: '4px 10px'}}>{o.status === 'waiting' ? '⌛ รอยืนยัน' : o.status === 'preparing' ? '🧑‍🍳 กำลังทำ' : o.status === 'paid' ? '✅ ชำระแล้ว' : o.status === 'ready' ? '📦 พร้อมรับ' : o.status}</div>
+                    </div>
+                    <div style={{display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center'}}>
+                      {o.deliveryInfo?.slipUrl && (
+                        <a href={supabase.storage.from('product-images').getPublicUrl(o.deliveryInfo.slipUrl).data.publicUrl} target="_blank" rel="noreferrer" className="btn" style={{background: 'var(--blue-50)', color: 'var(--blue-600)', padding: '8px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap', minHeight: 'auto'}}>
+                          📸 สลิป
+                        </a>
+                      )}
+                      {o.status === 'waiting' && (
+                        <button className="btn btn-primary" style={{padding: '8px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap', minHeight: 'auto'}} onClick={() => updateStatus(o.id, 'preparing')}>เริ่มทำ</button>
+                      )}
+                      {o.status !== 'ready' && o.status !== 'cancelled' && (
+                        <button className="btn btn-dark" style={{padding: '8px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap', minHeight: 'auto'}} onClick={() => updateStatus(o.id, 'ready')}>เสร็จแล้ว</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
         {activeTab === 'products' && (
           <section><div className="header"><h1>จัดการสินค้า</h1><button className="btn btn-primary" onClick={() => openEditModal('products')}>+ เพิ่มสินค้า</button></div>
@@ -508,16 +707,37 @@ function AdminDashboard() {
           <section><div className="header"><h1>จัดการหมวดหมู่</h1><button className="btn btn-primary" onClick={() => openEditModal('categories')}>+ เพิ่มหมวดหมู่</button></div>
             <div className="item-grid-admin">{db.categories.map(c => (<div key={c.id} className="item-card"><div className="admin-prod-row" style={{display:'flex', alignItems:'center', gap:'15px'}}><div style={{flex:1}}><strong>{c.name}</strong><br/><small>ลำดับ: {c.order_index}</small></div><div style={{display:'flex', gap:'5px'}}><button className="btn btn-dark" onClick={() => openEditModal('categories', c)}>📝</button><button className="btn btn-del" onClick={() => handleDelete('categories', c.id)}>🗑️</button></div></div></div>))}</div></section>
         )}
-        {activeTab === 'promptpay' && (
-          <section><div className="header"><h1>ตั้งค่า PromptPay</h1></div>
-            <div className="item-card" style={{maxWidth:'600px', padding:'30px'}}>
-              <div className="form-group" style={{marginBottom:'20px'}}><label>เพิ่มเบอร์ PromptPay ใหม่</label>
-                <div style={{display:'flex', gap:'10px'}}><input type="text" placeholder="เช่น 095xxxxxxx" value={newPp} onChange={e => setNewPp(e.target.value)} /><button className="btn btn-primary" onClick={addPpNumber}>เพิ่ม</button></div>
+        {activeTab === 'transactions' && (
+          <section>
+            <div className="header"><h1>จัดการโอนเงิน</h1></div>
+            <div className="item-card" style={{maxWidth: '600px'}}>
+              <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
+                <div style={{flex: 1}}>
+                  <div className="form-group">
+                    <label>ชื่อบัญชี (Account Name)</label>
+                    <input type="text" value={newPpName} onChange={e => setNewPpName(e.target.value)} placeholder="เช่น นายมังกร ใจดี" />
+                  </div>
+                  <div className="form-group">
+                    <label>เลขพร้อมเพย์ (PromptPay Number)</label>
+                    <input type="text" value={newPpNumber} onChange={e => setNewPpNumber(e.target.value)} placeholder="09xxxxxxxx" />
+                  </div>
+                  <button className="btn btn-primary" style={{width: '100%', justifyContent: 'center'}} onClick={savePayment}>บันทึกข้อมูล</button>
+                </div>
+                {payment && (
+                  <div style={{textAlign: 'center'}}>
+                    <p style={{fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-600)'}}>QR Code ปัจจุบัน</p>
+                    <div style={{padding:'10px', border:'1px solid var(--slate-200)', borderRadius:'16px'}}>
+                        <img 
+                            src={`https://promptpay.io/${payment.promptpay_number}/0.png`} 
+                            alt="PromptPay QR" 
+                            style={{width: '150px', height: '150px', display: 'block', margin: '0 auto', borderRadius: '10px'}} 
+                        />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="pp-list"><strong>รายการเบอร์ที่ใช้งานอยู่:</strong>
-                {settings.promptpay_numbers?.map(num => (<div key={num} style={{display:'flex', justifyContent:'space-between', padding:'15px', background:'var(--light)', borderRadius:'12px', marginTop:'10px'}}><span>{num}</span><button style={{color:'red', border:'none', background:'none', cursor:'pointer'}} onClick={() => removePpNumber(num)}>ลบ</button></div>))}
-              </div>
-            </div></section>
+            </div>
+          </section>
         )}
       </main>
 

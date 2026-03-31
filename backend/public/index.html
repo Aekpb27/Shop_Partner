@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,156 +10,795 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Anuphan:wght@400;500;600;700&display=swap');
-        :root { --primary: #ef4444; --dark: #0f172a; --slate-50: #f8fafc; --slate-200: #e2e8f0; --slate-500: #64748b; --white: #ffffff; --green: #10b981; --font-main: 'Anuphan', 'Plus Jakarta Sans', sans-serif; }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); outline: none; scrollbar-width: none; -ms-overflow-style: none; -webkit-tap-highlight-color: transparent; }
-        *::-webkit-scrollbar { display: none; }
-        body { background: var(--slate-50); color: var(--dark); display: flex; height: 100vh; overflow: hidden; }
-        
-        /* 🔒 Ultra Minimal Login Page */
-        #login-overlay { position: fixed; inset: 0; background: #ffffff; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden; }
-        .orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.4; z-index: 0; animation: slowFloat 30s infinite alternate ease-in-out; }
-        .orb-1 { width: 800px; height: 800px; background: #fee2e2; top: -300px; left: -200px; }
-        .orb-2 { width: 700px; height: 700px; background: #e0f2fe; bottom: -200px; right: -100px; animation-duration: 40s; }
-        @keyframes slowFloat { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(100px, 100px) scale(1.1); } }
-        @keyframes revealDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes revealUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes simpleFade { from { opacity: 0; } to { opacity: 1; } }
-        .login-card { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(30px); padding: 60px 45px; border-radius: 60px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 30px 100px rgba(0,0,0,0.03); z-index: 10; position: relative; }
-        .entry-1 { animation: revealDown 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        .entry-2 { opacity: 0; animation: simpleFade 1s 0.3s forwards; }
-        .entry-3 { opacity: 0; animation: revealUp 1s 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        .entry-4 { opacity: 0; animation: revealUp 1s 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        .login-logo { width: 90px; height: 90px; margin-bottom: 35px; object-fit: contain; filter: grayscale(0.2); }
-        .login-card h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 45px; color: var(--dark); letter-spacing: -1px; }
-        .login-card input { background: rgba(248, 250, 252, 0.8); border: 1px solid transparent; margin-bottom: 12px; padding: 18px 25px; border-radius: 22px; font-size: 0.95rem; width: 100%; transition: all 0.4s; font-weight: 600; }
-        .login-card input:focus { background: white; border-color: var(--slate-200); box-shadow: 0 10px 30px rgba(0,0,0,0.04); transform: translateY(-2px); }
-        
-        /* 🏰 Sidebar Styling */
-        .sidebar { width: 280px; background: var(--white); padding: 40px 20px; display: flex; flex-direction: column; border-right: 1px solid var(--slate-200); box-shadow: 10px 0 30px rgba(0,0,0,0.02); z-index: 100; flex-shrink: 0; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
-        .sidebar.collapsed { width: 85px; padding: 40px 10px; overflow: visible; }
-        
-        .sidebar.collapsed .logo span, 
-        .sidebar.collapsed .nav-btn span, 
-        .sidebar.collapsed .status-container span:not(.status-dot),
-        .sidebar.collapsed .logout-btn .btn span { display: none !important; }
-        
-        .sidebar.collapsed .status-container,
-        .sidebar.collapsed .logout-btn .btn { justify-content: center; gap: 0; padding: 10px 0; }
-        
-        .logo { font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-bottom: 45px; text-align: center; letter-spacing: -1.5px; display: flex; align-items: center; justify-content: center; gap: 12px; overflow: hidden; }
-        .logo-img { width: 45px; height: 45px; object-fit: contain; flex-shrink: 0; }
-        .nav-btn { padding: 16px 20px; border-radius: 15px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-weight: 600; color: var(--slate-500); margin-bottom: 8px; transition: 0.3s; display: flex; align-items: center; gap: 15px; font-size: 1rem; white-space: nowrap; overflow: hidden; }
-        .nav-btn:hover { background: var(--slate-50); color: var(--dark); }
-        .nav-btn.active { background: #fff1f2; color: var(--primary); border: 1px solid rgba(239, 68, 68, 0.1); }
-        .menu-icon { width: 26px; height: 26px; object-fit: contain; transition: 0.3s; flex-shrink: 0; }
-        
-        /* 🔘 Toggle Button (Half-Circle Position) */
-        .sidebar-toggle { 
-            position: absolute; top: 25px; right: -15px; width: 30px; height: 30px; 
-            background: var(--white); border: 1px solid var(--slate-200); border-radius: 50%; 
-            cursor: pointer; display: flex; align-items: center; justify-content: center; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08); z-index: 110; transition: 0.4s; 
-            font-size: 1.2rem; font-weight: 800; color: var(--slate-500);
+
+        :root {
+            --primary: #ef4444;
+            --dark: #0f172a;
+            --slate-50: #f8fafc;
+            --slate-200: #e2e8f0;
+            --slate-500: #64748b;
+            --white: #ffffff;
+            --green: #10b981;
+            --font-main: 'Anuphan', 'Plus Jakarta Sans', sans-serif;
         }
-        .sidebar-toggle:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.1); }
-        .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-main);
+            outline: none;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        *::-webkit-scrollbar {
+            display: none;
+        }
+
+        body {
+            background: var(--slate-50);
+            color: var(--dark);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 🔒 Ultra Minimal Login Page */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: #ffffff;
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.4;
+            z-index: 0;
+            animation: slowFloat 30s infinite alternate ease-in-out;
+        }
+
+        .orb-1 {
+            width: 800px;
+            height: 800px;
+            background: #fee2e2;
+            top: -300px;
+            left: -200px;
+        }
+
+        .orb-2 {
+            width: 700px;
+            height: 700px;
+            background: #e0f2fe;
+            bottom: -200px;
+            right: -100px;
+            animation-duration: 40s;
+        }
+
+        @keyframes slowFloat {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(100px, 100px) scale(1.1);
+            }
+        }
+
+        @keyframes revealDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes revealUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes simpleFade {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(30px);
+            padding: 60px 45px;
+            border-radius: 60px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.03);
+            z-index: 10;
+            position: relative;
+        }
+
+        .entry-1 {
+            animation: revealDown 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .entry-2 {
+            opacity: 0;
+            animation: simpleFade 1s 0.3s forwards;
+        }
+
+        .entry-3 {
+            opacity: 0;
+            animation: revealUp 1s 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .entry-4 {
+            opacity: 0;
+            animation: revealUp 1s 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .login-logo {
+            width: 90px;
+            height: 90px;
+            margin-bottom: 35px;
+            object-fit: contain;
+            filter: grayscale(0.2);
+        }
+
+        .login-card h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 45px;
+            color: var(--dark);
+            letter-spacing: -1px;
+        }
+
+        .login-card input {
+            background: rgba(248, 250, 252, 0.8);
+            border: 1px solid transparent;
+            margin-bottom: 12px;
+            padding: 18px 25px;
+            border-radius: 22px;
+            font-size: 0.95rem;
+            width: 100%;
+            transition: all 0.4s;
+            font-weight: 600;
+        }
+
+        .login-card input:focus {
+            background: white;
+            border-color: var(--slate-200);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+            transform: translateY(-2px);
+        }
+
+        /* 🏰 Sidebar Styling */
+        .sidebar {
+            width: 280px;
+            background: var(--white);
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--slate-200);
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.02);
+            z-index: 100;
+            flex-shrink: 0;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 85px;
+            padding: 40px 10px;
+            overflow: visible;
+        }
+
+        .sidebar.collapsed .logo span,
+        .sidebar.collapsed .nav-btn span,
+        .sidebar.collapsed .status-container span:not(.status-dot),
+        .sidebar.collapsed .logout-btn .btn span {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .status-container,
+        .sidebar.collapsed .logout-btn .btn {
+            justify-content: center;
+            gap: 0;
+            padding: 10px 0;
+        }
+
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 45px;
+            text-align: center;
+            letter-spacing: -1.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .logo-img {
+            width: 45px;
+            height: 45px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .nav-btn {
+            padding: 16px 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-weight: 600;
+            color: var(--slate-500);
+            margin-bottom: 8px;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .nav-btn:hover {
+            background: var(--slate-50);
+            color: var(--dark);
+        }
+
+        .nav-btn.active {
+            background: #fff1f2;
+            color: var(--primary);
+            border: 1px solid rgba(239, 68, 68, 0.1);
+        }
+
+        .menu-icon {
+            width: 26px;
+            height: 26px;
+            object-fit: contain;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+
+        /* 🔘 Toggle Button (Half-Circle Position) */
+        .sidebar-toggle {
+            position: absolute;
+            top: 25px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: var(--white);
+            border: 1px solid var(--slate-200);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            z-index: 110;
+            transition: 0.4s;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--slate-500);
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .sidebar.collapsed .sidebar-toggle {
+            transform: rotate(180deg);
+        }
 
         /* 📟 Sidebar Footer & Log Control */
-        .logout-btn { margin-top: auto; padding-top: 25px; border-top: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 10px; }
-        .logout-icon { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; } 
+        .logout-btn {
+            margin-top: auto;
+            padding-top: 25px;
+            border-top: 1px solid var(--slate-200);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
 
-        .status-container { 
-            display: flex; align-items: center; gap: 12px; cursor: pointer; 
-            font-weight: 700; font-size: 0.75rem; color: #64748b; 
-            padding: 8px; border-radius: 12px; transition: 0.2s; 
+        .logout-icon {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            flex-shrink: 0;
         }
-        .status-container:hover { background: var(--slate-50); }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; position: relative; transition: background 0.3s; }
-        .status-dot::after { 
-            content: ''; position: absolute; inset: -3px; border-radius: 50%; 
-            background: inherit; opacity: 0.3; animation: pulse 2s infinite; 
+
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #64748b;
+            padding: 8px;
+            border-radius: 12px;
+            transition: 0.2s;
         }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(2.5); opacity: 0; } }
-        
-        #log-console { 
-            background: #020617; color: #94a3b8; padding: 15px; border-radius: 15px; 
-            font-size: 0.65rem; max-height: 120px; overflow-y: auto; margin-bottom: 10px;
-            border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+
+        .status-container:hover {
+            background: var(--slate-50);
         }
-        .sidebar.collapsed #log-console { display: none !important; }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .status-dot::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            background: inherit;
+            opacity: 0.3;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        #log-console {
+            background: #020617;
+            color: #94a3b8;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 0.65rem;
+            max-height: 120px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar.collapsed #log-console {
+            display: none !important;
+        }
 
         /* 🏛️ Main Content Area */
-        .main { flex: 1; padding: 40px; overflow-y: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; gap: 15px; }
-        .header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1.5px; }
-        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .item-card { background: var(--white); padding: 22px; border-radius: 24px; border: 1px solid var(--slate-200); position: relative; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; gap: 10px; }
-        .item-card:hover { transform: translateY(-8px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); }
-        .item-card:active { transform: scale(0.98); }
-        .btn { padding: 12px 24px; border-radius: 14px; font-weight: 700; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; white-space: nowrap; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-dark { background: var(--dark); color: white; }
-        .btn-del { color: #ef4444; background: #fff1f2; }
+        .main {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 35px;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+        }
+
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .item-card {
+            background: var(--white);
+            padding: 22px;
+            border-radius: 24px;
+            border: 1px solid var(--slate-200);
+            position: relative;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .item-card:active {
+            transform: scale(0.98);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-dark {
+            background: var(--dark);
+            color: white;
+        }
+
+        .btn-del {
+            color: #ef4444;
+            background: #fff1f2;
+        }
 
         /* 📦 Modals Styling */
-        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.8) translateY(40px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        @keyframes modalHide { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.8) translateY(40px); } }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 15px; }
-        .modal-card { background: white; padding: 35px; border-radius: 32px; width: 550px; max-width: 100%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .modal-card.compact { width: 420px; }
-        .modal-card.closing { animation: modalHide 0.3s ease-in forwards; }
-        label { font-size: 0.85rem; font-weight: 700; color: var(--slate-500); margin-top: 20px; display: block; }
-        input, select { width: 100%; padding: 14px; margin-top: 8px; border: 1.5px solid var(--slate-200); border-radius: 15px; background: var(--slate-50); font-weight: 600; font-size: 1rem; }
-        .partner-pill { padding: 10px 18px; border-radius: 100px; background: var(--slate-50); border: 1.5px solid var(--slate-200); cursor: pointer; font-size: 0.8rem; font-weight: 700; margin: 4px; display: inline-block; }
-        .partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); }
-        .preview-box { width: 110px; height: 110px; background: var(--slate-50); border-radius: 20px; margin: 0 auto 25px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 3rem; border: 2px dashed var(--slate-200); }
-        .preview-box img { width: 100%; height: 100%; object-fit: cover; }
-        .modal-footer { margin-top: 35px; display: grid; grid-template-columns: 1fr 1.5fr; gap: 15px; }
+        @keyframes modalPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(40px);
+            }
 
-        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px; }
-        .toast { background: white; padding: 16px 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; font-weight: 700; animation: modalPop 0.4s ease-out forwards; border: 1px solid var(--slate-200); }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
 
-        /* 🔔 Right Side Notification */
-        #notification-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 15px; width: 350px; }
-        .order-alert { 
-            background: white; 
-            color: var(--dark); padding: 25px; border-radius: 30px; 
-            box-shadow: 0 15px 40px rgba(0,0,0,0.1); 
-            animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            position: relative; overflow: hidden;
+        @keyframes modalHide {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.8) translateY(40px);
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+
+        .modal-card {
+            background: white;
+            padding: 35px;
+            border-radius: 32px;
+            width: 550px;
+            max-width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .modal-card.compact {
+            width: 420px;
+        }
+
+        .modal-card.closing {
+            animation: modalHide 0.3s ease-in forwards;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--slate-500);
+            margin-top: 20px;
+            display: block;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 14px;
+            margin-top: 8px;
+            border: 1.5px solid var(--slate-200);
+            border-radius: 15px;
+            background: var(--slate-50);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .partner-pill {
+            padding: 10px 18px;
+            border-radius: 100px;
+            background: var(--slate-50);
+            border: 1.5px solid var(--slate-200);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin: 4px;
+            display: inline-block;
+        }
+
+        .partner-pill.active {
+            background: var(--dark);
+            color: white;
+            border-color: var(--dark);
+        }
+
+        .preview-box {
+            width: 110px;
+            height: 110px;
+            background: var(--slate-50);
+            border-radius: 20px;
+            margin: 0 auto 25px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            border: 2px dashed var(--slate-200);
+        }
+
+        .preview-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .modal-footer {
+            margin-top: 35px;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 15px;
+        }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .toast {
+            background: white;
+            padding: 16px 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            animation: modalPop 0.4s ease-out forwards;
             border: 1px solid var(--slate-200);
         }
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+
+        /* 🔔 Right Side Notification */
+        #notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 350px;
         }
-        .order-alert h4 { color: var(--primary); margin-bottom: 8px; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-        .order-alert p { font-size: 0.9rem; color: var(--slate-500); font-weight: 600; }
-        .order-alert .close-alert { position: absolute; top: 15px; right: 20px; cursor: pointer; opacity: 0.4; color: var(--dark); font-size: 1.2rem; z-index: 10; }
-        .order-alert .close-alert:hover { opacity: 1; }
+
+        .order-alert {
+            background: white;
+            color: var(--dark);
+            padding: 25px;
+            border-radius: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+            animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--slate-200);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .order-alert h4 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .order-alert p {
+            font-size: 0.9rem;
+            color: var(--slate-500);
+            font-weight: 600;
+        }
+
+        .order-alert .close-alert {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            cursor: pointer;
+            opacity: 0.4;
+            color: var(--dark);
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+
+        .order-alert .close-alert:hover {
+            opacity: 1;
+        }
 
         /* ⏳ Progress Timer Bar */
-        .timer-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: var(--slate-50); }
-        .timer-bar { height: 100%; background: var(--primary); width: 100%; animation: timerRun 10s linear forwards; }
-        @keyframes timerRun { from { width: 100%; } to { width: 0%; } }
+        .timer-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--slate-50);
+        }
+
+        .timer-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 100%;
+            animation: timerRun 10s linear forwards;
+        }
+
+        @keyframes timerRun {
+            from {
+                width: 100%;
+            }
+
+            to {
+                width: 0%;
+            }
+        }
 
         @media (max-width: 768px) {
-            body { flex-direction: column; }
-            .sidebar { width: 100%; height: auto; padding: 12px 15px; flex-direction: row; border-right: none; border-bottom: 1px solid var(--slate-200); overflow-x: auto; position: sticky; top: 0; background: var(--white); }
-            .sidebar.collapsed { width: 100%; padding: 12px 15px; overflow: visible; }
-            .sidebar-toggle { display: none; }
-            .logo { margin-bottom: 0; margin-right: 15px; font-size: 1.3rem; }
-            .logo span { display: none; }
-            .nav-btn { padding: 10px 16px; font-size: 0.85rem; margin-bottom: 0; width: auto; gap: 8px; }
-            .nav-btn span { display: inline; }
-            .logout-btn { display: none; }
-            .modal-card { width: 100% !important; border-radius: 24px; padding: 25px; }
-            .modal-footer { grid-template-columns: 1fr; display: flex; flex-direction: column-reverse; }
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                padding: 12px 15px;
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid var(--slate-200);
+                overflow-x: auto;
+                position: sticky;
+                top: 0;
+                background: var(--white);
+            }
+
+            .sidebar.collapsed {
+                width: 100%;
+                padding: 12px 15px;
+                overflow: visible;
+            }
+
+            .sidebar-toggle {
+                display: none;
+            }
+
+            .logo {
+                margin-bottom: 0;
+                margin-right: 15px;
+                font-size: 1.3rem;
+            }
+
+            .logo span {
+                display: none;
+            }
+
+            .nav-btn {
+                padding: 10px 16px;
+                font-size: 0.85rem;
+                margin-bottom: 0;
+                width: auto;
+                gap: 8px;
+            }
+
+            .nav-btn span {
+                display: inline;
+            }
+
+            .logout-btn {
+                display: none;
+            }
+
+            .modal-card {
+                width: 100% !important;
+                border-radius: 24px;
+                padding: 25px;
+            }
+
+            .modal-footer {
+                grid-template-columns: 1fr;
+                display: flex;
+                flex-direction: column-reverse;
+            }
         }
-        .hidden { display: none !important; }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
+
 <body>
     <div id="toast-container"></div>
     <div id="notification-container"></div>
@@ -173,11 +813,15 @@
             <div class="entry-3">
                 <input type="email" id="login-email" placeholder="อีเมลแอดมิน">
                 <div style="position: relative; width: 100%; margin-bottom: 12px;">
-                    <input type="password" id="login-password" placeholder="รหัสผ่าน" style="padding-right: 55px; margin-bottom: 0;">
-                    <span id="toggle-eye" onclick="togglePass()" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 1.2rem; opacity: 0.4;">👁️</span>
+                    <input type="password" id="login-password" placeholder="รหัสผ่าน"
+                        style="padding-right: 55px; margin-bottom: 0;">
+                    <span id="toggle-eye" onclick="togglePass()"
+                        style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 1.2rem; opacity: 0.4;">👁️</span>
                 </div>
             </div>
-            <div class="entry-4"><button class="btn btn-dark" style="width:100%; padding: 20px; justify-content: center; border-radius: 22px;" onclick="handleLogin()">เข้าสู่ระบบจัดการ</button></div>
+            <div class="entry-4"><button class="btn btn-dark"
+                    style="width:100%; padding: 20px; justify-content: center; border-radius: 22px;"
+                    onclick="handleLogin()">เข้าสู่ระบบจัดการ</button></div>
         </div>
     </div>
 
@@ -188,7 +832,8 @@
             <div id="modal-form-content"></div>
             <div class="modal-footer">
                 <button class="btn btn-dark" style="justify-content: center;" onclick="closeModal()">ยกเลิก</button>
-                <button class="btn btn-primary" style="justify-content: center;" onclick="saveModalItem()">บันทึกข้อมูล</button>
+                <button class="btn btn-primary" style="justify-content: center;"
+                    onclick="saveModalItem()">บันทึกข้อมูล</button>
             </div>
         </div>
     </div>
@@ -203,9 +848,12 @@
         <div class="modal-card compact" style="text-align: center;">
             <div style="font-size: 3.5rem; margin-bottom: 20px; display: flex; justify-content: center;">⚠️</div>
             <h2 id="confirm-title">ยืนยันการดำเนินการ</h2>
-            <p id="confirm-msg" style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px; line-height: 1.6;">คุณต้องการทำรายการนี้ใช่หรือไม่?</p>
+            <p id="confirm-msg"
+                style="color: var(--slate-500); font-weight: 600; margin-bottom: 25px; line-height: 1.6;">
+                คุณต้องการทำรายการนี้ใช่หรือไม่?</p>
             <div class="modal-footer">
-                <button class="btn btn-dark" style="justify-content: center;" onclick="closeConfirmModal()">ยกเลิก</button>
+                <button class="btn btn-dark" style="justify-content: center;"
+                    onclick="closeConfirmModal()">ยกเลิก</button>
                 <button id="confirm-submit-btn" class="btn btn-primary" style="justify-content: center;">ยืนยัน</button>
             </div>
         </div>
@@ -216,7 +864,7 @@
         <div class="sidebar" id="sidebar">
             <button class="sidebar-toggle" onclick="toggleSidebar()">‹</button>
             <div class="logo"><img src="/assets/logo.png" class="logo-img"> <span>DRAGONZ</span></div>
-            
+
             <button class="nav-btn" data-tab="orders" onclick="showTab('orders')">
                 <img src="/assets/orders.png" class="menu-icon"> <span>รายการสั่งซื้อ</span>
             </button>
@@ -232,16 +880,19 @@
             <button class="nav-btn" data-tab="transactions" onclick="showTab('transactions')">
                 <img src="/assets/transaction.png" class="menu-icon"> <span>จัดการโอนเงิน</span>
             </button>
-            
+
             <div class="logout-btn">
-                <div class="status-container" onclick="document.getElementById('log-console').classList.toggle('hidden')">
+                <div class="status-container"
+                    onclick="document.getElementById('log-console').classList.toggle('hidden')">
                     <span id="status-dot" class="status-dot" style="background: #cbd5e1;"></span>
                     <span>Log การเชื่อมต่อ</span>
                 </div>
                 <div id="log-console" class="hidden">
                     <div id="log-content"></div>
                 </div>
-                <button class="btn" style="width: 100%; color: var(--slate-500); background: var(--slate-50); justify-content: center; padding: 12px 0;" onclick="logout()">
+                <button class="btn"
+                    style="width: 100%; color: var(--slate-500); background: var(--slate-50); justify-content: center; padding: 12px 0;"
+                    onclick="logout()">
                     <img src="/assets/logout.png" style="width:20px; margin-right:10px;"> <span>ออกจากระบบ</span>
                 </button>
             </div>
@@ -255,24 +906,32 @@
                 </div>
 
                 <!-- 🔍 Filter & Stats Bar -->
-                <div style="background: white; padding: 25px; border-radius: 30px; margin-bottom: 30px; border: 1px solid var(--slate-200); box-shadow: 0 10px 30px rgba(0,0,0,0.02);">
+                <div
+                    style="background: white; padding: 25px; border-radius: 30px; margin-bottom: 30px; border: 1px solid var(--slate-200); box-shadow: 0 10px 30px rgba(0,0,0,0.02);">
                     <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end;">
                         <div style="flex: 1; min-width: 250px;">
-                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามชื่อร้านค้า</label>
-                            <select id="filter-partner" onchange="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                            <label
+                                style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามชื่อร้านค้า</label>
+                            <select id="filter-partner" onchange="renderAll()"
+                                style="margin-top: 0; height: 50px; background: var(--slate-50);">
                                 <option value="">แสดงทุกร้านค้า (All Partners)</option>
                             </select>
                         </div>
                         <div style="flex: 1; min-width: 250px;">
-                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">ค้นหารหัสออเดอร์</label>
-                            <input type="text" id="search-order" placeholder="พิมพ์เลขรหัสที่ต้องการ..." oninput="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                            <label
+                                style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">ค้นหารหัสออเดอร์</label>
+                            <input type="text" id="search-order" placeholder="พิมพ์เลขรหัสที่ต้องการ..."
+                                oninput="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
                         </div>
                         <div style="flex: 1; min-width: 250px;">
-                            <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามวันที่</label>
-                            <input type="date" id="filter-date" onchange="renderAll()" style="margin-top: 0; height: 50px; background: var(--slate-50);">
+                            <label
+                                style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.8rem; margin-bottom: 8px; display: block;">กรองตามวันที่</label>
+                            <input type="date" id="filter-date" onchange="renderAll()"
+                                style="margin-top: 0; height: 50px; background: var(--slate-50);">
                         </div>
                         <div style="display: flex; align-items: flex-end; height: 50px;">
-                            <button class="btn btn-del" onclick="resetFilters()" style="height: 100%; padding: 0 20px; font-size: 0.8rem; border-radius: 15px;">ล้างตัวกรอง</button>
+                            <button class="btn btn-del" onclick="resetFilters()"
+                                style="height: 100%; padding: 0 20px; font-size: 0.8rem; border-radius: 15px;">ล้างตัวกรอง</button>
                         </div>
                         <div id="order-stats-container" style="display: flex; gap: 15px; flex-shrink: 0;">
                             <!-- Stats will be injected here -->
@@ -289,28 +948,41 @@
                 </div>
 
                 <!-- 🔍 Product Filter Bar -->
-                <div style="background: white; padding: 20px; border-radius: 25px; margin-bottom: 25px; border: 1px solid var(--slate-200); display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                <div
+                    style="background: white; padding: 20px; border-radius: 25px; margin-bottom: 25px; border: 1px solid var(--slate-200); display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
                     <div style="flex: 1; min-width: 200px;">
-                        <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">กรองตามหมวดหมู่</label>
-                        <select id="filter-product-category" onchange="renderAll()" style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
+                        <label
+                            style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">กรองตามหมวดหมู่</label>
+                        <select id="filter-product-category" onchange="renderAll()"
+                            style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
                             <option value="">แสดงทุกหมวดหมู่</option>
                         </select>
                     </div>
                     <div style="flex: 2; min-width: 250px;">
-                        <label style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">ค้นหาชื่อสินค้า</label>
-                        <input type="text" id="search-product-name" placeholder="พิมพ์ชื่อสินค้าที่ต้องการ..." oninput="renderAll()" style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
+                        <label
+                            style="margin-top: 0; color: var(--slate-500); font-weight: 700; font-size: 0.75rem; margin-bottom: 6px; display: block;">ค้นหาชื่อสินค้า</label>
+                        <input type="text" id="search-product-name" placeholder="พิมพ์ชื่อสินค้าที่ต้องการ..."
+                            oninput="renderAll()"
+                            style="margin-top: 0; height: 45px; background: var(--slate-50); font-size: 0.9rem;">
                     </div>
-                    <button class="btn btn-del" onclick="resetProductFilters()" style="height: 45px; padding: 0 15px; font-size: 0.75rem; border-radius: 12px;">ล้างค่า</button>
+                    <button class="btn btn-del" onclick="resetProductFilters()"
+                        style="height: 45px; padding: 0 15px; font-size: 0.75rem; border-radius: 12px;">ล้างค่า</button>
                 </div>
 
                 <div id="products-list" class="item-grid"></div>
             </div>
             <div id="section-partners" class="hidden">
-                <div class="header"><h1>ร้านค้าพาร์ทเนอร์</h1><button class="btn btn-primary" onclick="openModal('partners')">+ เพิ่มร้านใหม่</button></div>
+                <div class="header">
+                    <h1>ร้านค้าพาร์ทเนอร์</h1><button class="btn btn-primary" onclick="openModal('partners')">+
+                        เพิ่มร้านใหม่</button>
+                </div>
                 <div id="partners-list" class="item-grid"></div>
             </div>
             <div id="section-categories" class="hidden">
-                <div class="header"><h1>หมวดหมู่สินค้า</h1><button class="btn btn-primary" onclick="openModal('categories')">+ เพิ่มหมวดหมู่</button></div>
+                <div class="header">
+                    <h1>หมวดหมู่สินค้า</h1><button class="btn btn-primary" onclick="openModal('categories')">+
+                        เพิ่มหมวดหมู่</button>
+                </div>
                 <div id="categories-list" class="item-grid"></div>
             </div>
             <div id="section-transactions" class="hidden">
@@ -324,24 +996,47 @@
                         <span style="font-size: 2.2rem;">📱</span>
                         <div>
                             <h3 style="margin: 0; font-size: 1.4rem; font-weight: 800;">ตั้งค่า PromptPay</h3>
-                            <p style="margin: 5px 0 0; font-size: 0.85rem; color: var(--slate-500); font-weight: 600;">ระบุชื่อบัญชีและเบอร์พร้อมเพย์ของร้านค้า</p>
+                            <p style="margin: 5px 0 0; font-size: 0.85rem; color: var(--slate-500); font-weight: 600;">
+                                ระบุชื่อบัญชีและเบอร์พร้อมเพย์ของร้านค้า</p>
                         </div>
-                    </div>
-                    
-                    <div id="pp-input-container" style="background: var(--slate-50); padding: 25px; border-radius: 24px; border: 1px dashed var(--slate-200); margin-bottom: 30px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                            <div><label style="margin-top: 0; font-weight: 700;">ชื่อบัญชี</label><input type="text" id="new-pp-name" placeholder="ชื่อ-นามสกุล"></div>
-                            <div><label style="margin-top: 0; font-weight: 700;">เบอร์พร้อมเพย์</label><input type="text" id="new-pp-input" placeholder="095xxxxxxx"></div>
-                        </div>
-                        <button class="btn btn-primary" onclick="addPpNumber()" style="width: 100%; height: 55px; justify-content: center;">บันทึกข้อมูลการโอนเงิน</button>
                     </div>
 
-                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--slate-500);">ข้อมูลปัจจุบัน</h4>
-                        <span id="pp-count-badge" style="background: var(--slate-200); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem;">0/1</span>
+                    <div id="pp-input-container"
+                        style="background: var(--slate-50); padding: 25px; border-radius: 24px; border: 1px dashed var(--slate-200); margin-bottom: 30px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div><label style="margin-top: 0; font-weight: 700;">ชื่อบัญชี</label><input type="text"
+                                    id="new-pp-name" placeholder="ชื่อ-นามสกุล"></div>
+                            <div><label style="margin-top: 0; font-weight: 700;">เบอร์พร้อมเพย์</label><input
+                                    type="text" id="new-pp-input" placeholder="095xxxxxxx"></div>
+                        </div>
+                        <button class="btn btn-primary" onclick="addPpNumber()"
+                            style="width: 100%; height: 55px; justify-content: center;">บันทึกข้อมูลการโอนเงิน</button>
+                    </div>
+
+                    <div
+                        style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: var(--slate-500);">
+                            ข้อมูลปัจจุบัน</h4>
+                        <span id="pp-count-badge"
+                            style="background: var(--slate-200); padding: 4px 12px; border-radius: 100px; font-size: 0.75rem;">0/1</span>
                     </div>
                     <div id="pp-list"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="slip-modal" class="modal-overlay hidden" onclick="closeSlipModal()">
+        <div class="modal-card compact"
+            style="background: transparent; box-shadow: none; text-align: center; padding: 10px;"
+            onclick="event.stopPropagation()">
+            <div
+                style="background: white; padding: 10px; border-radius: 24px; display: inline-block; position: relative; max-width: 100%;">
+                <div onclick="closeSlipModal()"
+                    style="position: absolute; top: -10px; right: -10px; width: 35px; height: 35px; background: var(--dark); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 10; font-size: 1.2rem;">
+                    ✕</div>
+                <img id="slip-modal-img" src=""
+                    style="max-width: 100%; max-height: 75vh; border-radius: 16px; display: block; object-fit: contain;">
             </div>
         </div>
     </div>
@@ -354,7 +1049,7 @@
 
         let db = { products: [], partners: [], categories: [], orders: [], payment: { id: 'promptpay', account_name: '', promptpay_number: '' } };
         let activeModal = { type: '', id: null, data: {} };
-        
+
         // 🔊 Audio Management
         const notificationAudio = new Audio('/assets/alert.mp3');
         notificationAudio.loop = true;
@@ -365,7 +1060,7 @@
             notificationAudio.play().then(() => {
                 notificationAudio.pause();
                 console.log("Audio Unlocked");
-            }).catch(e => {});
+            }).catch(e => { });
         }, { once: true });
 
         function showToast(m, t = 'success') {
@@ -374,9 +1069,9 @@
             el.className = `toast ${t}`;
             el.innerHTML = `<span>${t === 'success' ? '✅' : '❌'}</span> <span>${m}</span>`;
             c.appendChild(el);
-            setTimeout(() => { 
+            setTimeout(() => {
                 if (el.parentElement) {
-                    el.style.opacity = '0'; setTimeout(() => el.remove(), 400); 
+                    el.style.opacity = '0'; setTimeout(() => el.remove(), 400);
                 }
             }, 3000);
         }
@@ -386,7 +1081,7 @@
             const container = document.getElementById('notification-container');
             const alertEl = document.createElement('div');
             alertEl.className = 'order-alert';
-            
+
             // 🔊 Start sound if it's the first alert
             activeAlertCount++;
             notificationAudio.play().catch(e => {
@@ -399,12 +1094,21 @@
             const partner = db.partners.find(p => p.id == pId);
             const partnerDisplay = partner ? partner.name : (pId || 'ไม่ทราบชื่อร้าน');
 
+            // ดึงข้อมูลสินค้าตัวแรกมาโชว์รูป
+            const firstItem = (order.items && order.items.length > 0) ? order.items[0] : null;
+
             alertEl.innerHTML = `
                 <div class="close-alert">✕</div>
-                <h4>🔔 มีออเดอร์ใหม่เข้า!</h4>
-                <p>ออเดอร์ #${order.id}</p>
-                <p>จากร้าน: <strong>${partnerDisplay}</strong></p>
-                <p style="font-weight: 800; margin-top: 5px; color: var(--primary);">ยอดรวม: ฿${(order.total || 0).toLocaleString()}</p>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: var(--slate-50); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; border: 1px solid var(--slate-100);">
+                        ${firstItem && firstItem.imageUrl ? `<img src="${firstItem.imageUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<span style="font-size:1.5rem;">${firstItem ? (firstItem.emoji || '🔔') : '🔔'}</span>`}
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--primary);">มีออเดอร์ใหม่เข้า!</h4>
+                        <p style="font-size: 0.8rem; color: var(--slate-500); margin: 2px 0;">ออเดอร์ #${order.id} จาก: <strong>${partnerDisplay}</strong></p>
+                        <p style="font-weight: 800; color: var(--dark); font-size: 0.9rem;">ยอดรวม: ฿${(order.total || 0).toLocaleString()}</p>
+                    </div>
+                </div>
                 <div class="timer-bar-container">
                     <div class="timer-bar"></div>
                 </div>
@@ -415,7 +1119,7 @@
             const stopAndRemove = () => {
                 if (alertEl.dataset.stopped) return;
                 alertEl.dataset.stopped = "true";
-                
+
                 activeAlertCount--;
                 if (activeAlertCount <= 0) {
                     activeAlertCount = 0;
@@ -432,7 +1136,7 @@
 
             // คลิกปิดเพื่อหยุดเสียงและปิดแจ้งเตือน
             alertEl.querySelector('.close-alert').onclick = stopAndRemove;
-            
+
             // Auto remove after 10 seconds (and stop sound)
             setTimeout(stopAndRemove, 10000);
         }
@@ -443,15 +1147,15 @@
             localStorage.setItem('sidebar_collapsed', sidebar.classList.contains('collapsed'));
         }
 
-        async function handleLogin() { 
+        async function handleLogin() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             if (!email || !password) { showToast("กรุณากรอกข้อมูลให้ครบ", "error"); return; }
             try {
-                const res = await fetch('/api/login', { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({email, password})
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
                 if (data.success) { localStorage.setItem('dragonz_session', 'true'); location.reload(); }
@@ -481,12 +1185,12 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('dragonz_session')) { 
-                document.getElementById('dashboard-ui').classList.remove('hidden'); 
+            if (localStorage.getItem('dragonz_session')) {
+                document.getElementById('dashboard-ui').classList.remove('hidden');
                 if (localStorage.getItem('sidebar_collapsed') === 'true') document.getElementById('sidebar').classList.add('collapsed');
                 loadData().then(() => {
                     showTab(localStorage.getItem('active_tab') || 'orders');
-                    
+
                     // 🚀 Start Realtime Listening
                     addLog("กำลังเปิดระบบ Realtime Order Sync...", "info");
                     const orderChannel = supabaseClient
@@ -510,7 +1214,7 @@
                                 console.log('Realtime Status:', status);
                             }
                         });
-                }); 
+                });
             } else { document.getElementById('login-overlay').classList.remove('hidden'); }
         });
 
@@ -521,21 +1225,29 @@
                     addLog(`กำลังเรียกข้อมูล ${type}...`);
                     const res = await fetch(`/api/${type}`);
                     const data = await res.json();
-                    
+
                     if (type === 'payment') {
                         db.payment = data.find(p => p.id === 'promptpay') || { id: 'promptpay', account_name: '', promptpay_number: '' };
                         addLog(`โหลดข้อมูลการชำระเงินสำเร็จ`, 'success');
+                    } else if (type === 'orders') {
+                        db[type] = (data || []).map(o => {
+                            if (typeof o.items === 'string') {
+                                try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; }
+                            }
+                            return o;
+                        });
+                        addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
                     } else {
                         db[type] = data;
                         addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
                     }
-                } catch(e) { 
-                    if (type !== 'payment') db[type] = []; 
-                    connected = false; 
-                    addLog(`โหลด ${type} ล้มเหลว: ${e.message}`, 'error'); 
+                } catch (e) {
+                    if (type !== 'payment') db[type] = [];
+                    connected = false;
+                    addLog(`โหลด ${type} ล้มเหลว: ${e.message}`, 'error');
                 }
             }
-            
+
             // 🏷️ Populate Partner Filter
             const filterSelect = document.getElementById('filter-partner');
             if (filterSelect) {
@@ -576,13 +1288,13 @@
 
         function showTab(tabName) {
             localStorage.setItem('active_tab', tabName);
-            ['orders','products','partners','categories','transactions'].forEach(t => {
-                const sec = document.getElementById('section-'+t);
+            ['orders', 'products', 'partners', 'categories', 'transactions'].forEach(t => {
+                const sec = document.getElementById('section-' + t);
                 if (sec) sec.classList.add('hidden');
                 const btn = document.querySelector(`.nav-btn[data-tab="${t}"]`);
                 if (btn) btn.classList.remove('active');
             });
-            const activeSec = document.getElementById('section-'+tabName);
+            const activeSec = document.getElementById('section-' + tabName);
             if (activeSec) activeSec.classList.remove('hidden');
             const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabName}"]`);
             if (activeBtn) activeBtn.classList.add('active');
@@ -597,7 +1309,7 @@
             if (id) {
                 const item = db[type].find(i => i.id == id);
                 activeModal.data = JSON.parse(JSON.stringify(item));
-                
+
                 // 🛑 CRITICAL: Ensure category_names is an array
                 if (type === 'partners') {
                     if (!activeModal.data.category_names) {
@@ -605,7 +1317,7 @@
                     } else if (typeof activeModal.data.category_names === 'string') {
                         try {
                             activeModal.data.category_names = JSON.parse(activeModal.data.category_names);
-                        } catch(e) {
+                        } catch (e) {
                             activeModal.data.category_names = activeModal.data.category_names.split(',').map(s => s.trim());
                         }
                     }
@@ -613,12 +1325,12 @@
                         activeModal.data.category_names = [];
                     }
                 }
-                
-                document.getElementById('modal-title').innerText = `แก้ไข${type==='products'?'สินค้า':type==='partners'?'พาร์ทเนอร์':'หมวดหมู่'}`;
+
+                document.getElementById('modal-title').innerText = `แก้ไข${type === 'products' ? 'สินค้า' : type === 'partners' ? 'พาร์ทเนอร์' : 'หมวดหมู่'}`;
             } else {
-                activeModal.data = type === 'products' ? { id: Date.now(), name: '', price: 0, partnerIds: [], category: '', imageUrl: '', emoji: '🍹' } : 
-                                   type === 'partners' ? { id: 'shop-'+Math.floor(100000+Math.random()*900000), name: '', category_names: [] } : 
-                                   { id: Date.now(), name: '', order_index: 0 };
+                activeModal.data = type === 'products' ? { id: Date.now(), name: '', price: 0, partnerIds: [], category: '', imageUrl: '', emoji: '🍹' } :
+                    type === 'partners' ? { id: 'shop-' + Math.floor(100000 + Math.random() * 900000), name: '', category_names: [] } :
+                        { id: Date.now(), name: '', order_index: 0 };
                 document.getElementById('modal-title').innerText = `เพิ่มใหม่`;
             }
             renderModalForm();
@@ -630,6 +1342,17 @@
             const card = modal.querySelector('.modal-card');
             card.classList.add('closing');
             setTimeout(() => { modal.classList.add('hidden'); card.classList.remove('closing'); }, 300);
+        }
+
+        function showSlipModal(url) {
+            document.getElementById('slip-modal-img').src = url;
+            document.getElementById('slip-modal').classList.remove('hidden');
+        }
+
+        function closeSlipModal() {
+            document.getElementById('slip-modal').classList.add('hidden');
+            // เคลียร์รูปภาพออกหลังจากอนิเมชั่นปิดเสร็จ
+            setTimeout(() => { document.getElementById('slip-modal-img').src = ''; }, 300);
         }
 
         function renderModalForm() {
@@ -644,7 +1367,7 @@
                         <div><label>ราคา</label><input type="number" value="${d.price}" onchange="activeModal.data.price=Number(this.value)"></div>
                         <div><label>หมวดหมู่</label><select onchange="activeModal.data.category=this.value">
                             <option value="">-- เลือก --</option>
-                            ${db.categories.map(c => `<option value="${c.name}" ${d.category==c.name?'selected':''}>${c.name}</option>`).join('')}
+                            ${db.categories.map(c => `<option value="${c.name}" ${d.category == c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
                         </select></div>
                     </div>`;
             } else if (activeModal.type === 'partners') {
@@ -655,9 +1378,9 @@
                     <label>หมวดหมู่ที่จะแสดงในร้านนี้ (คลิกเพื่อเลือก)</label>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px">
                         ${db.categories.map(c => {
-                            const isActive = selectedNames.includes(c.name);
-                            return `<div class="partner-pill ${isActive ? 'active' : ''}" data-name="${c.name}" onclick="togglePartnerCategory('${c.name}', this)">${c.name}</div>`;
-                        }).join('')}
+                    const isActive = selectedNames.includes(c.name);
+                    return `<div class="partner-pill ${isActive ? 'active' : ''}" data-name="${c.name}" onclick="togglePartnerCategory('${c.name}', this)">${c.name}</div>`;
+                }).join('')}
                     </div>`;
             } else {
                 content.innerHTML = `<label>ชื่อหมวดหมู่</label><input value="${d.name}" onchange="activeModal.data.name=this.value">`;
@@ -692,10 +1415,29 @@
             if (data.success) { activeModal.data.imageUrl = data.url; document.getElementById('modal-preview').innerHTML = `<img src="${data.url}">`; showToast('อัพโหลดรูปสำเร็จ'); }
         }
 
+        async function updateStatus(id, status) {
+            try {
+                const res = await fetch(`/api/orders/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(`อัปเดตสถานะเป็น ${status === 'preparing' ? 'กำลังทำ' : 'พร้อมรับ'} สำเร็จ`);
+                    loadData();
+                } else {
+                    showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+                }
+            } catch (e) {
+                showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+            }
+        }
+
         async function saveModalItem() {
             const type = activeModal.type;
             const currentData = activeModal.data;
-            
+
             if (type === 'partners' && (!currentData.id || !currentData.name)) {
                 showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
                 return;
@@ -703,18 +1445,18 @@
 
             try {
                 // บันทึกเฉพาะข้อมูลชุดนี้ชุดเดียวเพื่อความถูกต้อง
-                const res = await fetch(`/api/${type}`, { 
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify(currentData) 
+                const res = await fetch(`/api/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentData)
                 });
-                
+
                 const result = await res.json();
-                if (res.ok && result.success) { 
-                    showToast('บันทึกสำเร็จ'); 
-                    closeModal(); 
+                if (res.ok && result.success) {
+                    showToast('บันทึกสำเร็จ');
+                    closeModal();
                     // รอสักครู่ก่อนโหลดข้อมูลใหม่เพื่อให้ Supabase อัปเดตเสร็จสมบูรณ์
-                    setTimeout(loadData, 500); 
+                    setTimeout(loadData, 500);
                 } else {
                     showToast('บันทึกไม่สำเร็จ: ' + (result.error || 'Unknown error'), 'error');
                 }
@@ -744,8 +1486,8 @@
             const nameEl = document.getElementById('new-pp-name');
             const numEl = document.getElementById('new-pp-input');
             const name = nameEl.value.trim();
-            const num = numEl.value.trim().replace(/\D/g, ''); 
-            
+            const num = numEl.value.trim().replace(/\D/g, '');
+
             if (!name || !num) { showToast("กรุณากรอกชื่อและเลขพร้อมเพย์", "error"); return; }
             if (num.length !== 10 && num.length !== 13) { showToast("เลขพร้อมเพย์ต้องมี 10 หรือ 13 หลักเท่านั้น", "error"); return; }
 
@@ -773,13 +1515,13 @@
             try {
                 const res = await fetch('/api/payment', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: 'promptpay', account_name: name, promptpay_number: num })
                 });
                 const result = await res.json();
                 if (res.ok && result.success) { showToast("บันทึกสำเร็จ"); await loadData(); }
                 else showToast("บันทึกไม่สำเร็จ", "error");
-            } catch(e) { showToast("Error: " + e.message, "error"); }
+            } catch (e) { showToast("Error: " + e.message, "error"); }
         }
 
         function renderAll() {
@@ -843,18 +1585,18 @@
                                 <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('categories','${c.id}')">🗑️</button>
                             </div>
                         </div>`).join('');
-                    
+
                     if (!catListEl.dataset.sortableActive) {
-                        new Sortable(catListEl, { 
-                            animation: 150, handle: '.drag-handle', 
-                            onEnd: async function() {
+                        new Sortable(catListEl, {
+                            animation: 150, handle: '.drag-handle',
+                            onEnd: async function () {
                                 const items = Array.from(catListEl.querySelectorAll('.item-card'));
-                                const updated = items.map((el, index) => { 
-                                    const cat = db.categories.find(c => c.id == el.dataset.id); 
-                                    return { ...cat, order_index: index + 1 }; 
+                                const updated = items.map((el, index) => {
+                                    const cat = db.categories.find(c => c.id == el.dataset.id);
+                                    return { ...cat, order_index: index + 1 };
                                 });
-                                db.categories = updated; 
-                                await fetch('/api/categories', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(db.categories) });
+                                db.categories = updated;
+                                await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.categories) });
                                 showToast('จัดเรียงลำดับสำเร็จ!'); loadData();
                             }
                         });
@@ -896,21 +1638,139 @@
                     if (filteredOrders.length === 0) {
                         oList.innerHTML = '<div class="item-card" style="text-align:center;padding:50px;opacity:0.5">ไม่พบข้อมูล</div>';
                     } else {
-                        oList.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px;">
-                            ${filteredOrders.map(o => `
-                                <div class="item-card" style="padding: 25px; cursor: default;">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--slate-200);">
-                                        <div>
-                                            <div style="font-weight: 800; font-size: 1.1rem; color: var(--dark);">ออเดอร์ #${o.id}</div>
-                                            <div style="font-size: 0.8rem; color: var(--slate-500); margin-top: 4px;">ร้าน: <strong>${o.partnerId || o.partner_id}</strong></div>
-                                        </div>
-                                        <div style="text-align: right;">
-                                            <div style="font-weight: 800; font-size: 1.3rem; color: var(--primary);">฿${(o.total || 0).toLocaleString()}</div>
-                                            <button class="btn btn-del" style="padding: 5px 12px; font-size: 0.75rem; margin-top: 8px;" onclick="deleteItem('orders','${o.id}')">ลบ</button>
-                                        </div>
+                        oList.innerHTML = `<div class="orders-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+    ${filteredOrders.map(o => {
+                            // 🔍 ลอจิกดึงชื่อร้านค้า
+                            const pId = o.partnerId || o.partner_id;
+                            const partner = db.partners.find(p => p.id == pId);
+                            const partnerName = partner ? partner.name : (pId || 'ไม่ทราบชื่อร้าน');
+
+                            // 📍 ลอจิกตรวจสอบจุดรับสินค้า (Pickup Location)
+                            const deliveryType = o.deliveryInfo?.type || o.type || '';
+                            let pickupText = '';
+                            let pickupIcon = '📍';
+                            let pickupBg = '';
+
+                            if (deliveryType === 'pickup_main') {
+                                pickupText = 'รับที่ร้านหลัก (Dragonz Cha)';
+                                pickupIcon = '🐉';
+                                pickupBg = 'background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;';
+                            } else if (deliveryType === 'pickup_store') {
+                                pickupText = `รับที่ร้านพาร์ทเนอร์ (${partnerName})`;
+                                pickupIcon = '🏪';
+                                pickupBg = 'background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;';
+                            } else {
+                                pickupText = 'ไม่ได้ระบุจุดรับ';
+                                pickupIcon = '❓';
+                                pickupBg = 'background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;';
+                            }
+
+                            return `
+        <div class="item-card order-card" style="border-radius: 20px; position:relative; display: flex; flex-direction: column; padding: 0; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: ${o.status === 'preparing' ? '2.5px solid #fbbf24' : o.status === 'ready' ? '2.5px solid #22c55e' : '1px solid var(--border)'};">
+            
+            <div class="order-header" style="background: ${o.status === 'preparing' ? '#fbbf24' : o.status === 'ready' ? '#22c55e' : 'linear-gradient(135deg, var(--primary), #991b1b)'}; color: white; padding: 15px 20px; border-radius: 20px 20px 0 0; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s ease;">
+                <div style="line-height: 1.2;">
+                    <span style="font-size: 0.75rem; font-weight: 700; opacity: 0.9; text-transform: uppercase;">ออเดอร์</span><br>
+                    <strong style="font-size: 1.3rem; font-weight: 800; letter-spacing: -0.5px;">#${o.id}</strong>
+                </div>
+                <div class="order-status-badge" data-status="${o.status}" style="background: white; color: var(--dark); padding: 4px 12px; border-radius: 10px; font-size: 0.75rem; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.15); margin: 0; white-space: nowrap;">
+                    ${o.status === 'waiting' ? '⌛ รอยืนยัน' : 
+                      o.status === 'preparing' ? '🧑‍🍳 กำลังทำ' : 
+                      o.status === 'paid' ? '✅ ชำระแล้ว' : 
+                      o.status === 'ready' ? '📦 พร้อมรับ' : 
+                      o.status === 'cancelled' ? '❌ ยกเลิก' : o.status}
+                </div>
+            </div>
+            
+            <div class="order-body" style="padding: 15px 18px; flex: 1; display: flex; flex-direction: column;">
+                
+                <div style="background: #eff6ff; border: 1.5px solid #3b82f6; padding: 15px 20px; border-radius: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);">
+                    <div style="width: 45px; height: 45px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex-shrink: 0; border: 1px solid #bfdbfe;">👤</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 0.75rem; color: #2563eb; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.5px;">ชื่อลูกค้าผู้สั่งซื้อ</div>
+                        <div style="font-size: 1.2rem; font-weight: 900; color: var(--dark); line-height: 1.2;">
+                            ${o.deliveryInfo?.name || 'ไม่ระบุชื่อ'}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #1e40af; font-weight: 700; margin-top: 4px;">
+                            📞 เบอร์ติดต่อ: ${o.deliveryInfo?.phone || 'ไม่มีเบอร์ติดต่อ'}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #fff1f2; border: 1.5px solid #f43f5e; padding: 12px 15px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.2rem;">🏪</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 0.65rem; color: #e11d48; font-weight: 800; text-transform: uppercase;">สั่งซื้อผ่านร้านพาร์ทเนอร์</div>
+                        <div style="font-size: 1rem; font-weight: 800; color: #9f1239;">${partnerName}</div>
+                    </div>
+                </div>
+                
+                <div class="order-items-admin" style="background: var(--slate-50); padding: 12px 15px; border-radius: 14px; flex: 1; max-height: 220px; overflow-y: auto;">
+                    <strong style="font-size: 0.75rem; color: var(--slate-500); text-transform: uppercase; margin-bottom: 8px; display: block;">รายการสินค้า:</strong>
+                    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+                        ${(o.items || []).map(item => `
+                            <li style="border-bottom: 1px solid var(--slate-200); padding-bottom: 8px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 35px; height: 35px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid var(--slate-200);">
+                                        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 1.2rem;">${item.emoji || '📦'}</span>`}
                                     </div>
-                                </div>`).join('')}
-                        </div>`;
+                                    <div style="flex: 1; font-size: 0.85rem; font-weight: 700; line-height: 1.3;">
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span style="color: var(--dark);">${item.name} <span style="color: var(--primary); font-weight: 800;">x${item.quantity || 1}</span></span>
+                                            <span style="color: var(--dark);">฿${(item.price * (item.quantity || 1)) || 0}</span>
+                                        </div>
+                                        ${item.sweetness ? `<div style="color: var(--slate-500); font-weight: 600; font-size: 0.75rem;">หวาน: ${item.sweetness}</div>` : ''}
+                                    </div>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                
+                <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed var(--slate-200); display: flex; flex-direction: column; gap: 10px;">
+                    
+                    <div style="padding: 8px 12px; border-radius: 10px; font-size: 0.8rem; font-weight: 800; display: flex; align-items: center; gap: 8px; ${pickupBg}">
+                        <span style="font-size: 1.1rem; line-height: 1;">${pickupIcon}</span>
+                        <span>จุดรับ: ${pickupText}</span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: var(--dark);">🏪 สั่งจากร้าน: <span style="color: var(--primary);">${partnerName}</span></div>
+                        <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 600;">🕒 ${new Date(o.timestamp).toLocaleString()}</div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="order-footer" style="padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--slate-200); background: var(--slate-50); border-radius: 0 0 20px 20px;">
+                
+                <div>
+                    ${o.deliveryInfo?.slipUrl ? `
+                        <button class="btn" onclick="showSlipModal('${supabaseClient.storage.from('product-images').getPublicUrl(o.deliveryInfo.slipUrl).data.publicUrl}')" style="background: #eff6ff; color: #2563eb; padding: 8px 12px; font-size: 0.8rem; border-radius: 10px; font-weight: 800;">
+                            📸 ดูสลิป
+                        </button>
+                    ` : `<span style="font-size: 0.75rem; color: var(--slate-500); font-weight: 600;">(ไม่มีรูปสลิป)</span>`}
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="text-align: right; margin-right: 5px;">
+                        <span style="font-size: 0.7rem; color: var(--slate-500); display: block; line-height: 1; font-weight: 700;">ยอดรวม</span>
+                        <span style="font-size: 1.1rem; font-weight: 800; color: var(--dark); line-height: 1;">฿${(o.total || 0).toLocaleString()}</span>
+                    </div>
+                    ${o.status === 'waiting' ? `
+                        <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 10px;" onclick="updateStatus('${o.id}', 'preparing')">เริ่มทำ</button>
+                    ` : ''}
+                    ${o.status === 'waiting' || o.status === 'preparing' ? `
+                        <button class="btn btn-dark" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 10px;" onclick="updateStatus('${o.id}', 'ready')">เสร็จแล้ว</button>
+                    ` : ''}
+                </div>
+
+            </div>
+            
+        </div>
+        `;
+                        }).join('')}
+</div>`;
                     }
                 }
 
@@ -918,11 +1778,11 @@
                 const ppListEl = document.getElementById('pp-list');
                 const ppInputContainer = document.getElementById('pp-input-container');
                 if (ppListEl) {
-                    const name = db.payment?.account_name || ''; 
+                    const name = db.payment?.account_name || '';
                     const num = db.payment?.promptpay_number || '';
                     const badge = document.getElementById('pp-count-badge');
                     if (badge) badge.innerText = `${num ? 1 : 0}/1`;
-                    
+
                     if (num) {
                         ppInputContainer.classList.add('hidden');
                         ppListEl.innerHTML = `
@@ -942,9 +1802,9 @@
                                     🔧 เปลี่ยนข้อมูล / แก้ไข
                                 </button>
                             </div>`;
-                    } else { 
-                        ppInputContainer.classList.remove('hidden'); 
-                        ppListEl.innerHTML = '<div style="padding:40px; opacity:0.5; text-align:center; font-weight: 600;">ยังไม่มีการตั้งค่า</div>'; 
+                    } else {
+                        ppInputContainer.classList.remove('hidden');
+                        ppListEl.innerHTML = '<div style="padding:40px; opacity:0.5; text-align:center; font-weight: 600;">ยังไม่มีการตั้งค่า</div>';
                     }
                 }
 
@@ -967,10 +1827,10 @@
             modal.classList.remove('hidden');
         }
         function closeQrModal() { document.getElementById('qr-modal').classList.add('hidden'); }
-        async function deleteItem(type, id) { 
+        async function deleteItem(type, id) {
             showConfirm('ลบข้อมูลนี้?', `คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชุดนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
                 try {
-                    const res = await fetch(`/api/${type}/${id}`, {method: 'DELETE'});
+                    const res = await fetch(`/api/${type}/${id}`, { method: 'DELETE' });
                     if (res.ok) {
                         showToast('ลบข้อมูลสำเร็จ');
                         loadData();
@@ -984,4 +1844,5 @@
         }
     </script>
 </body>
+
 </html>

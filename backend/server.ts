@@ -73,6 +73,17 @@ app.get('/api/:table', async (req: Request, res: Response) => {
     if (table === 'products') query = query.order('id', { ascending: true });
     
     const { data, error } = await query;
+
+    // 🛑 DEBUGGING: Log the data being sent for the 'orders' table
+    if (table === 'orders') {
+        console.log(`[DEBUG] GET /api/orders - Found ${data?.length || 0} records.`);
+        if (data && data.length > 0) {
+            console.log('[DEBUG] Sample Order:', JSON.stringify(data[0], null, 2));
+        } else {
+            console.log('[DEBUG] No order data found. Error:', error?.message);
+        }
+    }
+
     res.json(error ? [] : data);
 });
 
@@ -96,7 +107,21 @@ app.delete('/api/:table/:id', async (req: Request, res: Response) => {
     res.json({ success: !error });
 });
 
-// 5. 🏰 Admin Dashboard UI
+// 5. 🐉 API: Order Status Update (PATCH)
+app.patch('/api/orders/:id', async (req: Request, res: Response) => {
+    if (!supabase) return res.status(500).json({ error: 'X' });
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    console.log(`📝 Updating order ${id} status to: ${status}`);
+    
+    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    if (error) console.error('❌ Supabase Update Error:', error.message);
+    
+    res.json({ success: !error, error: error?.message });
+});
+
+// 6. 🏰 Admin Dashboard UI
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

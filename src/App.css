@@ -262,6 +262,31 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 /* 🏰 Admin Dashboard Styles */
 .admin-layout { display: flex; height: 100vh; background: var(--light); overflow: hidden; }
 .main-admin { flex: 1; padding: 40px; overflow-y: auto; }
+
+.orders-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 คอลัมน์ตอน sidebar ไม่ย่อ */
+  gap: 30px;
+  width: 100%;
+}
+
+/* เมื่อ sidebar ย่อ ให้แสดง 3 คอลัมน์ */
+.sidebar.collapsed + .main-admin .orders-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1400px) {
+  .sidebar.collapsed + .main-admin .orders-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .orders-grid, .sidebar.collapsed + .main-admin .orders-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sidebar { width: 280px; background: white; padding: 40px 20px; display: flex; flex-direction: column; border-right: 1px solid var(--border); transition: width 0.3s; position: relative; }
 .sidebar.collapsed { width: 85px; padding: 40px 10px; }
 .sidebar.collapsed .logo span, .sidebar.collapsed .nav-btn span { display: none; }
@@ -286,9 +311,12 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 .order-card { padding: 25px; margin-bottom: 20px; border-radius: 24px; background: white; border: 1px solid var(--border); }
 .order-header { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding-bottom: 15px; margin-bottom: 15px; }
 .order-total { font-size: 1.4rem; font-weight: 800; color: var(--primary); }
-.order-status-badge { padding: 5px 12px; border-radius: 100px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+.order-status-badge { padding: 5px 12px; border-radius: 100px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; display: inline-block; }
 .order-status-badge[data-status='waiting'] { background: #fef3c7; color: #92400e; }
 .order-status-badge[data-status='paid'] { background: #dcfce7; color: #166534; }
+.order-status-badge[data-status='preparing'] { background: #bfdbfe; color: #1e40af; }
+.order-status-badge[data-status='ready'] { background: #a7f3d0; color: #065f46; }
+.order-status-badge[data-status='cancelled'] { background: #fecaca; color: #be123c; }
 .mini-item { display: flex; align-items: center; gap: 12px; background: var(--light); padding: 8px; border-radius: 12px; margin-bottom: 8px; font-size: 0.85rem; }
 .mini-img { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: white; flex-shrink: 0; }
 .mini-img img { width: 100%; height: 100%; object-fit: cover; }
@@ -404,6 +432,15 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 }
 .partner-pill:hover { border-color: var(--primary); transform: translateY(-2px); }
 .partner-pill.active { background: var(--dark); color: white; border-color: var(--dark); }
+
+.order-card {
+  transition: var(--transition);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+.order-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
 
 /* ⚠️ Confirmation Modal Styles */
 .confirm-modal-overlay {
