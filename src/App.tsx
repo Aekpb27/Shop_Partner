@@ -54,6 +54,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     const saved = localStorage.getItem(`dragonz_history_${partnerId}`);
     try { return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
   });
+  const [activeOrderStatus, setActiveOrderStatus] = useState<string>('waiting');
 
   const [paymentTimeLeft, setPaymentTimer] = useState(900);
   const [paymentData, setPaymentData] = useState({ account_name: '', promptpay_number: '0958412521' });
@@ -65,6 +66,29 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   useEffect(() => { localStorage.setItem(`dragonz_step_${partnerId}`, checkoutStep); }, [checkoutStep, partnerId]);
   useEffect(() => { localStorage.setItem(`dragonz_delivery_${partnerId}`, JSON.stringify(deliveryInfo)); }, [deliveryInfo, partnerId]);
   useEffect(() => { if (activeOrderId) localStorage.setItem(`active_order_${partnerId}`, String(activeOrderId)); }, [activeOrderId, partnerId]);
+  useEffect(() => { localStorage.setItem(`dragonz_history_${partnerId}`, JSON.stringify(orderHistory)); }, [orderHistory, partnerId]);
+  useEffect(() => { localStorage.setItem(`dragonz_history_${partnerId}`, JSON.stringify(orderHistory)); }, [orderHistory, partnerId]);
+
+  // 📡 Real-time Order Status Listener for Customers
+  useEffect(() => {
+    if (!activeOrderId) return;
+    
+    const fetchInitialStatus = async () => {
+      const { data } = await supabase.from('orders').select('status').eq('id', activeOrderId).maybeSingle();
+      if (data) setActiveOrderStatus(data.status);
+    };
+    fetchInitialStatus();
+
+    const channel = supabase.channel(`order-status-${activeOrderId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${activeOrderId}` }, (payload) => {
+        const newStatus = payload.new.status;
+        setActiveOrderStatus(newStatus);
+        if (newStatus === 'preparing') showNotification('🧑‍🍳 ร้านกำลังเริ่มทำออเดอร์ของคุณแล้ว!');
+        if (newStatus === 'ready') showNotification('📦 ออเดอร์ของคุณทำเสร็จแล้ว มารับได้เลยครับ!');
+      })
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [activeOrderId]);
 
   const showNotification = (msg: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -201,6 +225,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       if (!error) {
         localStorage.removeItem(`dragonz_cart_${partnerId}`);
         localStorage.removeItem(`dragonz_step_${partnerId}`);
+        setOrderHistory(prev => [...new Set([...prev, activeOrderId])]);
         setCart([]); setCheckoutStep('status'); showNotification('✅ ส่งข้อมูลสำเร็จ!');
       } else { showNotification('❌ ผิดพลาด: ' + error.message); }
     } catch (e: any) { showNotification('❌ เกิดข้อผิดพลาด'); }
