@@ -1417,7 +1417,8 @@
             
             showToast('กำลังอัปโหลดรูปภาพ...', 'info');
             const fileExt = file.name.split('.').pop();
-            const fileName = `products/${Date.now()}.${fileExt}`;
+            // 📁 เปลี่ยนมาใช้โฟลเดอร์ slips ตามที่คุณตั้งค่าไว้
+            const fileName = `slips/prod-${Date.now()}.${fileExt}`;
 
             try {
                 const { data, error } = await supabaseClient.storage
