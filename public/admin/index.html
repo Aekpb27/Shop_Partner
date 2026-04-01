@@ -1412,11 +1412,30 @@
         }
 
         async function handleModalUpload(input) {
-            if (!input.files[0]) return;
-            const fd = new FormData(); fd.append('image', input.files[0]);
-            const res = await fetch('/api/upload', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) { activeModal.data.imageUrl = data.url; document.getElementById('modal-preview').innerHTML = `<img src="${data.url}">`; showToast('อัพโหลดรูปสำเร็จ'); }
+            const file = input.files[0];
+            if (!file) return;
+            
+            showToast('กำลังอัปโหลดรูปภาพ...', 'info');
+            const fileExt = file.name.split('.').pop();
+            const fileName = `products/${Date.now()}.${fileExt}`;
+
+            try {
+                const { data, error } = await supabaseClient.storage
+                    .from('product-images')
+                    .upload(fileName, file);
+
+                if (error) throw error;
+
+                const { data: urlData } = supabaseClient.storage
+                    .from('product-images')
+                    .getPublicUrl(fileName);
+
+                activeModal.data.imageUrl = urlData.publicUrl;
+                document.getElementById('modal-preview').innerHTML = `<img src="${urlData.publicUrl}">`;
+                showToast('อัปโหลดรูปภาพสำเร็จ');
+            } catch (e) {
+                showToast('อัปโหลดล้มเหลว: ' + e.message, 'error');
+            }
         }
 
         async function updateStatus(id, status) {

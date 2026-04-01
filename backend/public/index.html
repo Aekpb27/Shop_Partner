@@ -1057,9 +1057,11 @@
 
         // Unlock Audio for Browser Policy
         document.addEventListener('click', () => {
+            notificationAudio.volume = 0;
             notificationAudio.play().then(() => {
                 notificationAudio.pause();
-                console.log("Audio Unlocked");
+                notificationAudio.volume = 1;
+                console.log("Audio Unlocked Silently");
             }).catch(e => { });
         }, { once: true });
 
