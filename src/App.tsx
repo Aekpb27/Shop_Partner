@@ -50,6 +50,10 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     const saved = localStorage.getItem(`active_order_${partnerId}`);
     return saved ? Number(saved) : null;
   });
+  const [orderHistory, setOrderHistory] = useState<number[]>(() => {
+    const saved = localStorage.getItem(`dragonz_history_${partnerId}`);
+    try { return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
+  });
 
   const [paymentTimeLeft, setPaymentTimer] = useState(900);
   const [paymentData, setPaymentData] = useState({ account_name: '', promptpay_number: '0958412521' });
