@@ -1152,19 +1152,15 @@
             const password = document.getElementById('login-password').value;
             if (!email || !password) { showToast("กรุณากรอกข้อมูลให้ครบ", "error"); return; }
             try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                if (data.success) { localStorage.setItem('dragonz_session', 'true'); location.reload(); }
-                else { showToast(data.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง", "error"); }
-            } catch (e) { showToast("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", "error"); }
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) { showToast(error.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง", "error"); }
+                else { localStorage.setItem('dragonz_session', 'true'); location.reload(); }
+            } catch (e) { showToast("ไม่สามารถเชื่อมต่อ Supabase ได้", "error"); }
         }
 
         function logout() {
-            showConfirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบจัดการใช่หรือไม่?', () => {
+            showConfirm('ออกจากระบบ?', 'คุณต้องการออกจากระบบจัดการใช่หรือไม่?', async () => {
+                await supabaseClient.auth.signOut();
                 localStorage.clear();
                 location.reload();
             });
@@ -1220,32 +1216,40 @@
 
         async function loadData() {
             let connected = true;
-            for (let type of ['products', 'partners', 'categories', 'orders', 'payment']) {
-                try {
-                    addLog(`กำลังเรียกข้อมูล ${type}...`);
-                    const res = await fetch(`/api/${type}`);
-                    const data = await res.json();
+            addLog("กำลังดึงข้อมูลจาก Supabase...");
+            
+            try {
+                const results = await Promise.all([
+                    supabaseClient.from('products').select('*').order('id', { ascending: true }),
+                    supabaseClient.from('partners').select('*'),
+                    supabaseClient.from('categories').select('*').order('order_index', { ascending: true }),
+                    supabaseClient.from('orders').select('*').order('timestamp', { ascending: false }),
+                    supabaseClient.from('payment').select('*')
+                ]);
 
-                    if (type === 'payment') {
-                        db.payment = data.find(p => p.id === 'promptpay') || { id: 'promptpay', account_name: '', promptpay_number: '' };
-                        addLog(`โหลดข้อมูลการชำระเงินสำเร็จ`, 'success');
-                    } else if (type === 'orders') {
-                        db[type] = (data || []).map(o => {
-                            if (typeof o.items === 'string') {
-                                try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; }
-                            }
-                            return o;
-                        });
-                        addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
-                    } else {
-                        db[type] = data;
-                        addLog(`โหลด ${type} สำเร็จ (${data.length} รายการ)`, 'success');
-                    }
-                } catch (e) {
-                    if (type !== 'payment') db[type] = [];
+                const [prod, part, cat, ord, pay] = results;
+
+                if (prod.error || part.error || cat.error || ord.error) {
                     connected = false;
-                    addLog(`โหลด ${type} ล้มเหลว: ${e.message}`, 'error');
+                    addLog("เกิดข้อผิดพลาดในการดึงข้อมูลบางส่วน", "error");
                 }
+
+                db.products = prod.data || [];
+                db.partners = part.data || [];
+                db.categories = cat.data || [];
+                db.orders = (ord.data || []).map(o => {
+                    if (typeof o.items === 'string') {
+                        try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; }
+                    }
+                    return o;
+                });
+                db.payment = pay.data?.find(p => p.id === 'promptpay') || { id: 'promptpay', account_name: '', promptpay_number: '' };
+
+                addLog(`โหลดข้อมูลสำเร็จ (สินค้า ${db.products.length}, ออเดอร์ ${db.orders.length})`, 'success');
+
+            } catch (e) {
+                connected = false;
+                addLog(`ระบบขัดข้อง: ${e.message}`, 'error');
             }
 
             // 🏷️ Populate Partner Filter
@@ -1417,17 +1421,12 @@
 
         async function updateStatus(id, status) {
             try {
-                const res = await fetch(`/api/orders/${id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
-                const result = await res.json();
-                if (result.success) {
+                const { error } = await supabaseClient.from('orders').update({ status }).eq('id', id);
+                if (!error) {
                     showToast(`อัปเดตสถานะเป็น ${status === 'preparing' ? 'กำลังทำ' : 'พร้อมรับ'} สำเร็จ`);
                     loadData();
                 } else {
-                    showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+                    showToast('อัปเดตสถานะไม่สำเร็จ: ' + error.message, 'error');
                 }
             } catch (e) {
                 showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
@@ -1444,21 +1443,14 @@
             }
 
             try {
-                // บันทึกเฉพาะข้อมูลชุดนี้ชุดเดียวเพื่อความถูกต้อง
-                const res = await fetch(`/api/${type}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentData)
-                });
+                const { error } = await supabaseClient.from(type).upsert(currentData);
 
-                const result = await res.json();
-                if (res.ok && result.success) {
+                if (!error) {
                     showToast('บันทึกสำเร็จ');
                     closeModal();
-                    // รอสักครู่ก่อนโหลดข้อมูลใหม่เพื่อให้ Supabase อัปเดตเสร็จสมบูรณ์
                     setTimeout(loadData, 500);
                 } else {
-                    showToast('บันทึกไม่สำเร็จ: ' + (result.error || 'Unknown error'), 'error');
+                    showToast('บันทึกไม่สำเร็จ: ' + error.message, 'error');
                 }
             } catch (e) {
                 showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
@@ -1498,12 +1490,12 @@
         async function removePpNumber() {
             showConfirm('เปลี่ยนข้อมูลการโอนเงิน?', 'คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชุดนี้เพื่อตั้งค่าใหม่?', async () => {
                 try {
-                    const res = await fetch('/api/payment/promptpay', { method: 'DELETE' });
-                    if (res.ok) {
+                    const { error } = await supabaseClient.from('payment').delete().eq('id', 'promptpay');
+                    if (!error) {
                         showToast('ลบข้อมูลการโอนเงินสำเร็จ');
                         await loadData();
                     } else {
-                        showToast('ไม่สามารถลบข้อมูลได้', 'error');
+                        showToast('ไม่สามารถลบข้อมูลได้: ' + error.message, 'error');
                     }
                 } catch (e) {
                     showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
@@ -1596,8 +1588,13 @@
                                     return { ...cat, order_index: index + 1 };
                                 });
                                 db.categories = updated;
-                                await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.categories) });
-                                showToast('จัดเรียงลำดับสำเร็จ!'); loadData();
+                                const { error } = await supabaseClient.from('categories').upsert(db.categories);
+                                if (!error) {
+                                    showToast('จัดเรียงลำดับสำเร็จ!');
+                                    loadData();
+                                } else {
+                                    showToast('จัดเรียงลำดับไม่สำเร็จ: ' + error.message, 'error');
+                                }
                             }
                         });
                         catListEl.dataset.sortableActive = 'true';
@@ -1830,12 +1827,12 @@
         async function deleteItem(type, id) {
             showConfirm('ลบข้อมูลนี้?', `คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชุดนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้`, async () => {
                 try {
-                    const res = await fetch(`/api/${type}/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
+                    const { error } = await supabaseClient.from(type).delete().eq('id', id);
+                    if (!error) {
                         showToast('ลบข้อมูลสำเร็จ');
                         loadData();
                     } else {
-                        showToast('ไม่สามารถลบข้อมูลได้', 'error');
+                        showToast('ไม่สามารถลบข้อมูลได้: ' + error.message, 'error');
                     }
                 } catch (e) {
                     showToast('เกิดข้อผิดพลาด: ' + e.message, 'error');
