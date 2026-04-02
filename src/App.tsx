@@ -150,34 +150,40 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
 
   useEffect(() => {
     async function fetchData() {
-      if (!partnerId) return;
+      if (!partnerId) {
+        console.log("StorePage: partnerId is missing.");
+        setLoading(false);
+        return;
+      }
+      console.log("StorePage: Starting fetchData for", partnerId);
       setLoading(true);
       try {
-        // 1. Fetch ALL products (no longer filtered by partnerIds)
-        const { data: prodData } = await supabase.from('products').select('*').order('id', { ascending: true });
-        const currentProducts = prodData || [];
-        setProducts(currentProducts);
+        const { data: prodData, error: pErr } = await supabase.from('products').select('*').order('id', { ascending: true });
+        if (pErr) throw pErr;
+        setProducts(prodData || []);
+        console.log("StorePage: Products fetched:", (prodData || []).length);
 
-        // 2. Fetch all categories
-        const { data: catData } = await supabase.from('categories').select('name').order('order_index', { ascending: true });
+        const { data: catData, error: cErr } = await supabase.from('categories').select('name').order('order_index', { ascending: true });
+        if (cErr) throw cErr;
         
         if (catData) {
-          // 3. Determine which categories to show
           const selectedByAdmin = partner?.category_names || [];
-          
           let filtered;
           if (selectedByAdmin.length > 0) {
-            // If admin explicitly chose categories, use those
             filtered = catData.filter(c => selectedByAdmin.includes(c.name));
           } else {
-            // SMART FALLBACK: Only show categories that actually have products in this store
-            const availableCatNames = [...new Set(currentProducts.map(p => p.category))];
+            const availableCatNames = [...new Set((prodData || []).map(p => p.category))];
             filtered = catData.filter(c => availableCatNames.includes(c.name));
           }
-          
           setCategories(['All', ...filtered.map(c => c.name)]);
+          console.log("StorePage: Categories set:", filtered.length + 1);
         }
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+      } catch (e) { 
+        console.error("StorePage: Error fetching data:", e); 
+      } finally { 
+        setLoading(false); 
+        console.log("StorePage: Loading finished.");
+      }
     }
     fetchData();
   }, [partnerId, partner]);
