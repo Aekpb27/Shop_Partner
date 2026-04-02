@@ -295,9 +295,8 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       </button>
 
       {orderHistory.length > 0 && (
-        <button className={`history-fab ${showFab ? 'visible' : ''}`} style={{left: '20px', right: 'auto', bottom: '20px'}} onClick={() => { setCheckoutStep('status'); openTracking(); }}>
-          <span style={{fontSize: '1.5rem'}}>📋</span>
-          <div className="fab-label">ติดตามสถานะ</div>
+        <button className={`history-fab ${showFab ? 'visible' : ''}`} onClick={() => { setCheckoutStep('status'); openTracking(); }}>
+          <img src="/assets/orders.png" className="fab-img" alt="tracking" />
         </button>
       )}
       
