@@ -238,7 +238,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
         localStorage.removeItem(`dragonz_cart_${partnerId}`);
         localStorage.removeItem(`dragonz_step_${partnerId}`);
         setOrderHistory(prev => [...new Set([...prev, activeOrderId])]);
-        setCart([]); closeCart(); openTracking(); showNotification('✅ ส่งข้อมูลสำเร็จ!');
+        setCart([]); setCheckoutStep('cart'); showNotification('✅ ส่งข้อมูลสำเร็จ!');
       } else { showNotification('❌ ผิดพลาด: ' + error.message); }
     } catch (e: any) { showNotification('❌ เกิดข้อผิดพลาด'); }
   };
