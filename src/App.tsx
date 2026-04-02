@@ -261,14 +261,21 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
   const targetPP = (partner?.promptpay_id || paymentData.promptpay_number || '0958412521').replace(/[^0-9]/g, '');
 
-  if (!partner && !loading) return <div className="loading-screen">404 Not Found - ไม่พบร้านค้า</div>;
-  if (loading) return (
-    <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
-      <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
-      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมความอร่อย...</div>
-    </div>
-  );
+  if (!partner && !loading) {
+    console.log("StorePage: Render 404 Not Found");
+    return <div className="loading-screen">404 Not Found - ไม่พบร้านค้า</div>;
+  }
+  if (loading) {
+    console.log("StorePage: Render Loading Screen");
+    return (
+      <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
+        <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
+        <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมความอร่อย...</div>
+      </div>
+    );
+  }
 
+  console.log("StorePage: Rendering Main UI for", partner?.name);
   return (
     <div className={`app ${isMobile ? 'mobile-view' : 'desktop-view'}`}>
       {toast && <ToastNotification message={toast} />}
