@@ -385,6 +385,9 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
               <div className="status-step">
                 <div className="status-hero">
                   <div className="dragon-pulse"><img src="/assets/logo.png" style={{width: '80px', height: '80px', objectFit: 'contain'}} alt="logo" /></div>
+                  <div style={{display: 'inline-block', background: 'var(--slate-100)', padding: '6px 16px', borderRadius: '100px', fontWeight: 800, color: 'var(--slate-600)', marginBottom: '15px', fontSize: '0.85rem', border: '1px solid var(--border)'}}>
+                    ออเดอร์ #{activeOrderId}
+                  </div>
                   <h3>{activeOrderStatus === 'waiting' ? 'ส่งข้อมูลการโอนเรียบร้อย' : 
                        activeOrderStatus === 'preparing' ? 'กำลังจัดเตรียมสินค้า' : 
                        activeOrderStatus === 'ready' ? 'สินค้าทำเสร็จแล้ว!' : 'ได้รับคำสั่งซื้อแล้ว'}</h3>
