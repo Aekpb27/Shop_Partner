@@ -254,7 +254,10 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const targetPP = (partner?.promptpay_id || paymentData.promptpay_number || '0958412521').replace(/[^0-9]/g, '');
 
   if (!partner && !loading) return <div className="loading-screen">404 Not Found - ไม่พบร้านค้า</div>;
-  if (loading) return <div className="loading-screen">กำลังเตรียมข้อมูล... 🐉</div>;
+  if (loading) return <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
+      <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
+      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมข้อมูล...</div>
+    </div>;
 
   return (
     <div className={`app ${isMobile ? 'mobile-view' : 'desktop-view'}`}>
@@ -435,12 +438,11 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
                 ) : (
                   <>
                     <div className="status-timeline">
-                      <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
-                      <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
+                      <div className="step active"><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
+                      <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
                       <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
                       <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
                     </div>
-
                     <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
                       <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>ออเดอร์ล่าสุดของคุณ:</div>
                       <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
@@ -482,6 +484,7 @@ function AdminDashboard() {
   const [session, setSession] = useState<any>(null);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('dragonz_admin_tab') || 'orders');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [db, setDb] = useState<{products: Product[], partners: Partner[], categories: Category[], orders: Order[]}>({ products: [], partners: [], categories: [], orders: [] });
   const [payment, setPayment] = useState<{account_name: string, promptpay_number: string} | null>(null);
   const [loading, setLoading] = useState(true);
@@ -500,6 +503,13 @@ function AdminDashboard() {
   const showConfirm = (title: string, msg: string, onConfirm: () => void) => {
     setConfirmModal({ title, msg, onConfirm });
   };
+  
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile(); window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => { localStorage.setItem('dragonz_admin_tab', activeTab); }, [activeTab]);
 
   const showNotification = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
@@ -660,16 +670,32 @@ const handleDelete = async (table: string, id: any) => {
       ))}</div>
       
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-        <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>{sidebarCollapsed ? '›' : '‹'}</button>
-        <div className="logo"><img src="/assets/logo.png" className="logo-img" alt="logo" /> <span>DRAGONZ</span></div>
+        {!isMobile && <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>{sidebarCollapsed ? '›' : '‹'}</button>}
+        {!isMobile && <div className="logo"><img src="/assets/logo.png" className="logo-img" alt="logo" /> <span>DRAGONZ</span></div>}
         
-        <button className={`nav-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}><img src="/assets/orders.png" className="menu-icon" alt="orders" /> <span>รายการสั่งซื้อ</span></button>
-        <button className={`nav-btn ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}><img src="/assets/products.png" className="menu-icon" alt="products" /> <span>จัดการสินค้า</span></button>
-        <button className={`nav-btn ${activeTab === 'partners' ? 'active' : ''}`} onClick={() => setActiveTab('partners')}><img src="/assets/partner.png" className="menu-icon" alt="partners" /> <span>พาร์ทเนอร์</span></button>
-        <button className={`nav-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}><img src="/assets/category.png" className="menu-icon" alt="categories" /> <span>หมวดหมู่</span></button>
-        <button className={`nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}><img src="/assets/transaction.png" style={{width:'20px', height:'20px'}} className="menu-icon" alt="transactions" /> <span>จัดการโอนเงิน</span></button>
+        <button className={`nav-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+          <img src="/assets/orders.png" className="menu-icon" alt="orders" /> <span>รายการสั่งซื้อ</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>
+          <img src="/assets/products.png" className="menu-icon" alt="products" /> <span>จัดการสินค้า</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'partners' ? 'active' : ''}`} onClick={() => setActiveTab('partners')}>
+          <img src="/assets/partner.png" className="menu-icon" alt="partners" /> <span>พาร์ทเนอร์</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
+          <img src="/assets/category.png" className="menu-icon" alt="categories" /> <span>หมวดหมู่</span>
+        </button>
+        <button className={`nav-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
+          <img src="/assets/transaction.png" style={{width:'20px', height:'20px'}} className="menu-icon" alt="transactions" /> <span>โอนเงิน</span>
+        </button>
         
-        <div className="logout-btn"><button className="btn" style={{width:'100%', background:'var(--slate-50)', justifyContent:'center'}} onClick={() => supabase.auth.signOut()}><img src="/assets/logout.png" style={{width:'20px', marginRight:'10px'}} alt="logout" /> <span>ออก</span></button></div>
+        {!isMobile && (
+          <div className="logout-btn">
+            <button className="btn" style={{width:'100%', background:'var(--slate-50)', justifyContent:'center'}} onClick={() => supabase.auth.signOut()}>
+              <img src="/assets/logout.png" style={{width:'20px', marginRight:'10px'}} alt="logout" /> <span>ออก</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <main className="main-admin">
@@ -876,9 +902,49 @@ function LoginPage() {
 // --- App Component ---
 function App() {
   const [allPartners, setAllPartners] = useState<Partner[]>([]); const [loading, setLoading] = useState(true);
-  useEffect(() => { async function fetchPartners() { try { const { data } = await supabase.from('partners').select('*'); if (data) setAllPartners(data); } catch (e) { console.error(e); } finally { setLoading(false); } } fetchPartners(); }, []);
-  if (loading) return <div className="loading-screen">Dragonz Cha... 🐉</div>;
-  return (<BrowserRouter><Routes><Route path="/store/:partnerId" element={<StorePage allPartners={allPartners} />} /><Route path="/admin" element={<AdminDashboard />} /><Route path="/login" element={<LoginPage />} /><Route path="/" element={<div className="loading-screen">404 - กรุณาระบุรหัสร้านค้า</div>} /></Routes></BrowserRouter>);
+  useEffect(() => { 
+    console.log("App: Fetching partners...");
+    async function fetchPartners() { 
+      try { 
+        const { data } = await supabase.from('partners').select('*'); 
+        if (data) setAllPartners(data); 
+      } catch (e) { console.error(e); } 
+      finally { setLoading(false); } 
+    } 
+    fetchPartners(); 
+  }, []);
+
+  if (loading) return (
+    <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
+      <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
+      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>Dragonz Cha...</div>
+    </div>
+  );
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/store/:partnerId" element={<StorePage allPartners={allPartners} />} />
+        <Route path="/admin-panel" element={<AdminDashboard />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin" element={<div className="loading-screen">กำลังย้ายไปยังหน้าจัดการ... (โปรดใช้ /admin-panel)</div>} />
+        <Route path="/" element={<div className="loading-screen" style={{background: '#f1f5f9'}}>
+          <div style={{textAlign: 'center'}}>
+            <h1 style={{fontSize: '4rem'}}>🐉</h1>
+            <h2>404 - ไม่พบหน้าเว็บ</h2>
+            <p>กรุณาระบุรหัสร้านค้าใน URL</p>
+          </div>
+        </div>} />
+        <Route path="*" element={<div className="loading-screen" style={{background: '#f1f5f9'}}>
+          <div style={{textAlign: 'center'}}>
+            <h1 style={{fontSize: '4rem'}}>🐉</h1>
+            <h2>404 - ไม่พบหน้าเว็บ</h2>
+            <p>หน้าที่คุณต้องการไม่มีอยู่จริง</p>
+          </div>
+        </div>} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App

@@ -510,6 +510,12 @@ body { background: var(--light); color: var(--dark); line-height: 1.6; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+@keyframes dragonPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* 📱 Mobile Optimization */
 @media (max-width: 768px) {
   .navbar { padding: 1rem 20px; }

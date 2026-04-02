@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DRAGONZ | ระบบจัดการหลังบ้าน</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Anuphan:wght@400;500;600;700&display=swap');
@@ -1862,24 +1862,30 @@
                 addLog("เกิดข้อผิดพลาดในการวาดหน้าจอ: " + err.message, "error");
             }
         }
-        function showQrModal(partnerId, partnerName) {
+        async function showQrModal(partnerId, partnerName) {
             const modal = document.getElementById('qr-modal');
             const url = `${window.location.origin}/store/${partnerId}`;
-            modal.innerHTML = `
-                <div class="modal-card compact" style="text-align: center;" onclick="event.stopPropagation()">
-                    <h2 style="margin-bottom: 20px;">QR Code สำหรับ ${partnerName}</h2>
-                    <a href="${url}" target="_blank" style="display: block; background: white; padding: 20px; border-radius: 25px; margin: 0 auto; width: max-content; box-shadow: 0 10px 25px rgba(0,0,0,0.05); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                        <canvas id="qr-canvas" style="width: 100% !important; height: auto !important; max-width: 250px; display: block; cursor: pointer;"></canvas>
-                    </a>
-                    <p style="font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-top: 25px; margin-bottom: 10px;">👇 แตะที่ QR Code เพื่อไปยังหน้าร้าน</p>
-                    <a href="${url}" target="_blank" style="font-size: 0.8rem; opacity: 0.8; word-break: break-all; color: var(--slate-500); text-decoration: underline;">${url}</a>
-                    <div style="margin-top: 25px; display: flex; gap: 10px;">
-                        <a href="${url}" target="_blank" class="btn btn-primary" style="flex: 1; justify-content: center; text-decoration: none;">เปิดหน้าร้านค้า</a>
-                        <button class="btn btn-dark" style="flex: 1; justify-content: center;" onclick="closeQrModal()">ปิดหน้าต่าง</button>
-                    </div>
-                </div>`;
-            QRCode.toCanvas(modal.querySelector('#qr-canvas'), url, { width: 250, margin: 2 });
-            modal.classList.remove('hidden');
+            
+            try {
+                const qrDataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 });
+                modal.innerHTML = `
+                    <div class="modal-card compact" style="text-align: center;" onclick="event.stopPropagation()">
+                        <h2 style="margin-bottom: 20px;">QR Code สำหรับ ${partnerName}</h2>
+                        <a href="${url}" target="_blank" style="display: block; background: white; padding: 20px; border-radius: 25px; margin: 0 auto; width: max-content; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+                            <img src="${qrDataUrl}" style="width: 100%; height: auto; max-width: 250px; display: block; cursor: pointer;">
+                        </a>
+                        <p style="font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-top: 25px; margin-bottom: 10px;">👇 แตะที่ QR Code เพื่อไปยังหน้าร้าน</p>
+                        <a href="${url}" target="_blank" style="font-size: 0.8rem; opacity: 0.8; word-break: break-all; color: var(--slate-500); text-decoration: underline;">${url}</a>
+                        <div style="margin-top: 25px; display: flex; gap: 10px;">
+                            <a href="${url}" target="_blank" class="btn btn-primary" style="flex: 1; justify-content: center; text-decoration: none;">เปิดหน้าร้านค้า</a>
+                            <button class="btn btn-dark" style="flex: 1; justify-content: center;" onclick="closeQrModal()">ปิดหน้าต่าง</button>
+                        </div>
+                    </div>`;
+                modal.classList.remove('hidden');
+            } catch (err) {
+                console.error("QR Error:", err);
+                showToast("ไม่สามารถสร้าง QR Code ได้", "error");
+            }
         }
         function closeQrModal() { document.getElementById('qr-modal').classList.add('hidden'); }
         async function deleteItem(type, id) {
