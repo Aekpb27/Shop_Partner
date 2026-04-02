@@ -38,7 +38,8 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const [isTrackingClosing, setIsTrackingClosing] = useState(false);
 
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'details' | 'payment' | 'status'>(() => {
-    return (localStorage.getItem(`dragonz_step_${partnerId}`) as any) || 'cart';
+    const saved = localStorage.getItem(`dragonz_step_${partnerId}`);
+    return (saved === 'status' ? 'cart' : (saved as any)) || 'cart';
   });
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem(`dragonz_cart_${partnerId}`);
