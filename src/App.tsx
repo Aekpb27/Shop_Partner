@@ -251,7 +251,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       
       <nav className="navbar">
         <div className="brand-title">
-          <span style={{fontSize: isMobile ? '1.5rem' : '2.2rem'}}>{partner?.logo || '🐉'}</span>
+          <img src="/assets/logo.png" style={{width: isMobile ? '35px' : '45px', height: isMobile ? '35px' : '45px', objectFit: 'contain'}} alt="logo" />
           <div className="brand-text">Dragonz Cha</div>
         </div>
         <button className={`cart-trigger ${cartAnim ? 'cart-bump' : ''}`} onClick={openCart}>
@@ -357,8 +357,22 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
               )}
               {checkoutStep === 'status' && (
                 <div className="status-step">
-                  <div className="status-hero"><div className="dragon-pulse">🐉</div><h3>ส่งข้อมูลการโอนเรียบร้อย</h3><p>รอแอดมินตรวจสอบยอดเงินสักครู่ครับ</p></div>
-                  <div className="status-timeline"><div className="step active"><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div><div className="step active"><span>2</span> <div>รอแอดมินยืนยันยอด</div></div><div className="step"><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div><div className="step"><span>4</span> <div>สินค้าพร้อมรับ</div></div></div>
+                  <div className="status-hero">
+                    <div className="dragon-pulse">🐉</div>
+                    <h3>{activeOrderStatus === 'waiting' ? 'ส่งข้อมูลการโอนเรียบร้อย' : 
+                         activeOrderStatus === 'preparing' ? 'กำลังจัดเตรียมสินค้า' : 
+                         activeOrderStatus === 'ready' ? 'สินค้าทำเสร็จแล้ว!' : 'ได้รับคำสั่งซื้อแล้ว'}</h3>
+                    <p>{activeOrderStatus === 'waiting' ? 'รอแอดมินตรวจสอบยอดเงินสักครู่ครับ' : 
+                        activeOrderStatus === 'preparing' ? 'บาริสต้ากำลังปรุงเครื่องดื่มให้คุณอย่างพิถีพิถัน' : 
+                        activeOrderStatus === 'ready' ? 'เชิญคุณลูกค้ารับสินค้าได้ที่จุดรับเลยครับ' : ''}</p>
+                  </div>
+                  
+                  <div className="status-timeline">
+                    <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
+                    <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
+                    <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
+                    <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
+                  </div>
                   
                   <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
                     <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>สรุปรายการที่คุณสั่ง:</div>
