@@ -262,10 +262,12 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const targetPP = (partner?.promptpay_id || paymentData.promptpay_number || '0958412521').replace(/[^0-9]/g, '');
 
   if (!partner && !loading) return <div className="loading-screen">404 Not Found - ไม่พบร้านค้า</div>;
-  if (loading) return <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
+  if (loading) return (
+    <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
       <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
-      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมข้อมูล...</div>
-    </div>;
+      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมความอร่อย...</div>
+    </div>
+  );
 
   return (
     <div className={`app ${isMobile ? 'mobile-view' : 'desktop-view'}`}>
