@@ -780,6 +780,53 @@
                 display: none;
             }
 
+            .main {
+                padding: 20px 15px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                margin-bottom: 25px;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .item-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .orders-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .item-card {
+                padding: 18px;
+            }
+
+            .order-header {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 15px;
+            }
+            
+            .order-header > div:last-child {
+                align-self: flex-end;
+            }
+
+            .order-footer {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 15px;
+            }
+            
+            .order-footer > div {
+                justify-content: center;
+                width: 100%;
+            }
+
             .modal-card {
                 width: 100% !important;
                 border-radius: 24px;
@@ -1821,9 +1868,15 @@
             modal.innerHTML = `
                 <div class="modal-card compact" style="text-align: center;" onclick="event.stopPropagation()">
                     <h2 style="margin-bottom: 20px;">QR Code สำหรับ ${partnerName}</h2>
-                    <div style="background: white; padding: 20px; border-radius: 25px; display: inline-block; margin: 0 auto;"><canvas id="qr-canvas" style="width: 100% !important; height: auto !important; max-width: 250px; display: block;"></canvas></div>
-                    <p style="font-size: 0.8rem; opacity: 0.6; margin-top: 20px; word-break: break-all;">${url}</p>
-                    <div style="margin-top: 25px;"><button class="btn btn-dark" style="width: 100%; justify-content: center;" onclick="closeQrModal()">ปิดหน้าต่าง</button></div>
+                    <a href="${url}" target="_blank" style="display: block; background: white; padding: 20px; border-radius: 25px; margin: 0 auto; width: max-content; box-shadow: 0 10px 25px rgba(0,0,0,0.05); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        <canvas id="qr-canvas" style="width: 100% !important; height: auto !important; max-width: 250px; display: block; cursor: pointer;"></canvas>
+                    </a>
+                    <p style="font-size: 0.85rem; font-weight: 700; color: var(--primary); margin-top: 25px; margin-bottom: 10px;">👇 แตะที่ QR Code เพื่อไปยังหน้าร้าน</p>
+                    <a href="${url}" target="_blank" style="font-size: 0.8rem; opacity: 0.8; word-break: break-all; color: var(--slate-500); text-decoration: underline;">${url}</a>
+                    <div style="margin-top: 25px; display: flex; gap: 10px;">
+                        <a href="${url}" target="_blank" class="btn btn-primary" style="flex: 1; justify-content: center; text-decoration: none;">เปิดหน้าร้านค้า</a>
+                        <button class="btn btn-dark" style="flex: 1; justify-content: center;" onclick="closeQrModal()">ปิดหน้าต่าง</button>
+                    </div>
                 </div>`;
             QRCode.toCanvas(modal.querySelector('#qr-canvas'), url, { width: 250, margin: 2 });
             modal.classList.remove('hidden');
