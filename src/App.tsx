@@ -293,6 +293,13 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
         <img src="/assets/shopping.png" className="fab-img" alt="cart" />
         <div className="fab-badge">{cart.reduce((a, b) => a + b.quantity, 0)}</div>
       </button>
+
+      {orderHistory.length > 0 && (
+        <button className={`history-fab ${showFab ? 'visible' : ''}`} style={{left: '20px', right: 'auto', bottom: '20px'}} onClick={() => { setCheckoutStep('status'); openTracking(); }}>
+          <span style={{fontSize: '1.5rem'}}>📋</span>
+          <div className="fab-label">ติดตามสถานะ</div>
+        </button>
+      )}
       
       {activeProduct && (
         <div className={`modal-overlay ${isModalClosing ? 'exit' : ''}`} onClick={closeProductModal}>
