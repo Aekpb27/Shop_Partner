@@ -117,7 +117,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   useEffect(() => {
     const fetchPaymentInfo = async () => {
       try {
-        const { data, error } = await supabase.from('payment').select('*').eq('id', 'promptpay').single();
+        const { data, error } = await supabase.from('payment').select('*').eq('id', 'promptpay').maybeSingle();
         if (data && !error) {
           setPaymentData({ 
             account_name: data.account_name || '', 
@@ -416,8 +416,8 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
                   }}>
                     <strong style={{fontSize: '0.85rem', color: 'var(--slate-500)', textTransform: 'uppercase', display: 'block', marginBottom: '15px', textAlign: 'center'}}>สรุปรายการที่คุณสั่ง:</strong>
                     <ul style={{listStyle:'none', padding:0, margin:0}}>
-                      {(activeOrder?.items || []).map((item: any, idx: number) => (
-                        <li key={idx} style={{borderBottom: idx === ((activeOrder?.items || []).length - 1) ? 'none' : '1px solid var(--border)', padding: '10px 0'}}>
+                      {(Array.isArray(activeOrder?.items) ? activeOrder.items : []).map((item: any, idx: number) => (
+                        <li key={idx} style={{borderBottom: idx === ((Array.isArray(activeOrder?.items) ? activeOrder.items : []).length - 1) ? 'none' : '1px solid var(--border)', padding: '10px 0'}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
                             <div style={{width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', border: '1px solid var(--border)'}}>
                               {item.imageUrl ? <img src={item.imageUrl} alt={item.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : <span style={{fontSize: '1.5rem'}}>{item.emoji}</span>}
@@ -895,7 +895,17 @@ const handleDelete = async (table: string, id: any) => {
 // --- Login Page ---
 function LoginPage() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const navigate = useNavigate();
-  const handleLogin = async () => { const { error } = await supabase.auth.signInWithPassword({ email, password }); if (!error) navigate('/admin'); else alert(error.message); };
+  const handleLogin = async () => { 
+    console.log("LoginPage: Attempting login...");
+    const { error } = await supabase.auth.signInWithPassword({ email, password }); 
+    if (!error) {
+      console.log("LoginPage: Login success, navigating to /admin-panel");
+      navigate('/admin-panel'); 
+    } else { 
+      console.error("LoginPage: Login error:", error.message);
+      alert(error.message); 
+    }
+  };
   return (<div className="login-page"><div className="login-card"><img src="/assets/logo.png" style={{width:'80px'}} alt="logo" /><h2>Dragonz Admin</h2><input type="email" placeholder="อีเมล" value={email} onChange={e => setEmail(e.target.value)} /><input type="password" placeholder="รหัสผ่าน" value={password} onChange={e => setPassword(e.target.value)} /><button className="btn btn-dark" style={{width:'100%', padding:'20px', borderRadius:'22px'}} onClick={handleLogin}>เข้าสู่ระบบจัดการ</button></div></div>);
 }
 
@@ -903,12 +913,12 @@ function LoginPage() {
 function App() {
   const [allPartners, setAllPartners] = useState<Partner[]>([]); const [loading, setLoading] = useState(true);
   useEffect(() => { 
-    console.log("App: Fetching partners...");
+    console.log("App: Initializing...");
     async function fetchPartners() { 
       try { 
         const { data } = await supabase.from('partners').select('*'); 
         if (data) setAllPartners(data); 
-      } catch (e) { console.error(e); } 
+      } catch (e) { console.error("App: Fetch Partners Error:", e); } 
       finally { setLoading(false); } 
     } 
     fetchPartners(); 
@@ -920,6 +930,8 @@ function App() {
       <div style={{fontWeight: 800, letterSpacing: '-1px'}}>Dragonz Cha...</div>
     </div>
   );
+
+  console.log("App: Rendering Routes...");
 
   return (
     <BrowserRouter>
