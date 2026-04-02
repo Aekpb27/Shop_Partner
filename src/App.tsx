@@ -358,7 +358,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
               {checkoutStep === 'status' && (
                 <div className="status-step">
                   <div className="status-hero">
-                    <div className="dragon-pulse">🐉</div>
+                    <div className="dragon-pulse"><img src="/assets/logo.png" style={{width: '80px', height: '80px', objectFit: 'contain'}} alt="logo" /></div>
                     <h3>{activeOrderStatus === 'waiting' ? 'ส่งข้อมูลการโอนเรียบร้อย' : 
                          activeOrderStatus === 'preparing' ? 'กำลังจัดเตรียมสินค้า' : 
                          activeOrderStatus === 'ready' ? 'สินค้าทำเสร็จแล้ว!' : 'ได้รับคำสั่งซื้อแล้ว'}</h3>
