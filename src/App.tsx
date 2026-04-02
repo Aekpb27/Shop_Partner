@@ -58,6 +58,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
     try { return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
   });
   const [activeOrderStatus, setActiveOrderStatus] = useState<string>('waiting');
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   const [paymentTimeLeft, setPaymentTimer] = useState(900);
   const [paymentData, setPaymentData] = useState({ account_name: '', promptpay_number: '0958412521' });
@@ -70,15 +71,21 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   useEffect(() => { localStorage.setItem(`dragonz_delivery_${partnerId}`, JSON.stringify(deliveryInfo)); }, [deliveryInfo, partnerId]);
   useEffect(() => { if (activeOrderId) localStorage.setItem(`active_order_${partnerId}`, String(activeOrderId)); }, [activeOrderId, partnerId]);
   useEffect(() => { localStorage.setItem(`dragonz_history_${partnerId}`, JSON.stringify(orderHistory)); }, [orderHistory, partnerId]);
-  useEffect(() => { localStorage.setItem(`dragonz_history_${partnerId}`, JSON.stringify(orderHistory)); }, [orderHistory, partnerId]);
 
   // 📡 Real-time Order Status Listener for Customers
   useEffect(() => {
     if (!activeOrderId) return;
     
     const fetchInitialStatus = async () => {
-      const { data } = await supabase.from('orders').select('status').eq('id', activeOrderId).maybeSingle();
-      if (data) setActiveOrderStatus(data.status);
+      const { data } = await supabase.from('orders').select('*').eq('id', activeOrderId).maybeSingle();
+      if (data) {
+        let orderWithParsedItems = { ...data };
+        if (typeof data.items === 'string') {
+          try { orderWithParsedItems.items = JSON.parse(data.items); } catch(e) { orderWithParsedItems.items = []; }
+        }
+        setActiveOrder(orderWithParsedItems);
+        setActiveOrderStatus(data.status);
+      }
     };
     fetchInitialStatus();
 
@@ -397,19 +404,51 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
                       activeOrderStatus === 'ready' ? 'เชิญคุณลูกค้ารับสินค้าได้ที่จุดรับเลยครับ' : ''}</p>
                 </div>
                 
-                <div className="status-timeline">
-                  <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
-                  <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
-                  <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
-                  <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
-                </div>
-
-                <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
-                  <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>สรุปรายการล่าสุด:</div>
-                  <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-                    <div style={{fontWeight: 800, textAlign: 'center', color: 'var(--primary)', fontSize: '1.2rem'}}>ออเดอร์ #{activeOrderId}</div>
+                {activeOrderStatus === 'ready' ? (
+                  <div className="order-items-admin" style={{
+                    background: 'var(--slate-50)', 
+                    padding: '20px', 
+                    borderRadius: '20px', 
+                    marginTop: '20px'
+                  }}>
+                    <strong style={{fontSize: '0.85rem', color: 'var(--slate-500)', textTransform: 'uppercase', display: 'block', marginBottom: '15px', textAlign: 'center'}}>สรุปรายการที่คุณสั่ง:</strong>
+                    <ul style={{listStyle:'none', padding:0, margin:0}}>
+                      {(activeOrder?.items || []).map((item: any, idx: number) => (
+                        <li key={idx} style={{borderBottom: idx === ((activeOrder?.items || []).length - 1) ? 'none' : '1px solid var(--border)', padding: '10px 0'}}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                            <div style={{width: '45px', height: '45px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', border: '1px solid var(--border)'}}>
+                              {item.imageUrl ? <img src={item.imageUrl} alt={item.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : <span style={{fontSize: '1.5rem'}}>{item.emoji}</span>}
+                            </div>
+                            <div style={{flex: 1, fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2}}>
+                              {item.name} <span style={{color: 'var(--primary)'}}>x{item.quantity}</span>
+                              <div style={{fontSize: '0.8rem', color: 'var(--slate-500)', fontWeight: 500}}>หวาน {item.sweetness} • ฿{item.price}</div>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <div style={{marginTop: '15px', paddingTop: '15px', borderTop: '1px dashed var(--slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <span style={{fontWeight: 700, color: 'var(--slate-500)'}}>ยอดรวมทั้งสิ้น</span>
+                      <strong style={{color: 'var(--primary)', fontSize: '1.4rem'}}>฿{(activeOrder?.total || 0).toLocaleString()}</strong>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="status-timeline">
+                      <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
+                      <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
+                      <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
+                      <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
+                    </div>
+
+                    <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
+                      <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>ออเดอร์ล่าสุดของคุณ:</div>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                        <div style={{fontWeight: 800, textAlign: 'center', color: 'var(--primary)', fontSize: '1.2rem'}}>ออเดอร์ #{activeOrderId}</div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <button className="btn btn-dark" style={{width:'100%', marginTop:'30px', padding:'15px', borderRadius:'15px'}} onClick={() => { closeTracking(); clearSession(); }}>สั่งออเดอร์ใหม่</button>
               </div>
