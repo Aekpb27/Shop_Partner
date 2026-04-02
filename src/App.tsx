@@ -34,6 +34,8 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const [tempSweetness, setTempSweetness] = useState('100%');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCartClosing, setIsCartClosing] = useState(false);
+  const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+  const [isTrackingClosing, setIsTrackingClosing] = useState(false);
 
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'details' | 'payment' | 'status'>(() => {
     return (localStorage.getItem(`dragonz_step_${partnerId}`) as any) || 'cart';
@@ -176,6 +178,8 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
   const closeProductModal = () => { setIsModalClosing(true); setTimeout(() => { setActiveProduct(null); setIsModalClosing(false); }, 300); };
   const openCart = () => { setIsCartOpen(true); setIsCartClosing(false); };
   const closeCart = () => { setIsCartClosing(true); setTimeout(() => { setIsCartOpen(false); setIsCartClosing(false); }, 400); };
+  const openTracking = () => { setIsTrackingOpen(true); setIsTrackingClosing(false); };
+  const closeTracking = () => { setIsTrackingClosing(true); setTimeout(() => { setIsTrackingOpen(false); setIsTrackingClosing(false); }, 400); };
 
   const updateQuantity = (id: number, sweetness: string, delta: number) => {
     setCart(prev => prev.map(item =>
@@ -226,7 +230,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
         localStorage.removeItem(`dragonz_cart_${partnerId}`);
         localStorage.removeItem(`dragonz_step_${partnerId}`);
         setOrderHistory(prev => [...new Set([...prev, activeOrderId])]);
-        setCart([]); setCheckoutStep('status'); showNotification('✅ ส่งข้อมูลสำเร็จ!');
+        setCart([]); closeCart(); openTracking(); showNotification('✅ ส่งข้อมูลสำเร็จ!');
       } else { showNotification('❌ ผิดพลาด: ' + error.message); }
     } catch (e: any) { showNotification('❌ เกิดข้อผิดพลาด'); }
   };
@@ -317,7 +321,7 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
       {isCartOpen && (
         <div className={`cart-overlay ${isCartClosing ? 'exit' : ''}`} onClick={closeCart}>
           <div className={`cart-drawer ${isCartClosing ? 'exit' : ''}`} onClick={e => e.stopPropagation()}>
-            <div className="cart-header"><h2>{checkoutStep === 'cart' ? 'ตะกร้าสินค้า' : checkoutStep === 'details' ? 'ข้อมูลจัดส่ง' : checkoutStep === 'payment' ? 'ชำระเงิน' : 'ติดตามออเดอร์'}</h2><button className="close-cart" onClick={closeCart}>✕</button></div>
+            <div className="cart-header"><h2>{checkoutStep === 'cart' ? 'ตะกร้าสินค้า' : checkoutStep === 'details' ? 'ข้อมูลจัดส่ง' : 'ชำระเงิน'}</h2><button className="close-cart" onClick={closeCart}>✕</button></div>
             <div className="cart-content">
               {checkoutStep === 'cart' && (cart.length === 0 ? <div style={{textAlign:'center', marginTop:'50px', fontWeight:700, opacity:0.5}}>ตะกร้าว่างเปล่า</div> : cart.map(item => (
                 <div key={`${item.id}-${item.sweetness}`} className="cart-item">
@@ -355,57 +359,51 @@ function StorePage({ allPartners }: { allPartners: Partner[] }) {
                   <div className="upload-section"><label className="upload-btn"><input type="file" accept="image/*" style={{display:'none'}} onChange={handleInformPayment} /><span>📸 อัปโหลดสลิปเพื่อยืนยัน</span></label></div>
                 </div>
               )}
-              {checkoutStep === 'status' && (
-                <div className="status-step">
-                  <div className="status-hero">
-                    <div className="dragon-pulse"><img src="/assets/logo.png" style={{width: '80px', height: '80px', objectFit: 'contain'}} alt="logo" /></div>
-                    <h3>{activeOrderStatus === 'waiting' ? 'ส่งข้อมูลการโอนเรียบร้อย' : 
-                         activeOrderStatus === 'preparing' ? 'กำลังจัดเตรียมสินค้า' : 
-                         activeOrderStatus === 'ready' ? 'สินค้าทำเสร็จแล้ว!' : 'ได้รับคำสั่งซื้อแล้ว'}</h3>
-                    <p>{activeOrderStatus === 'waiting' ? 'รอแอดมินตรวจสอบยอดเงินสักครู่ครับ' : 
-                        activeOrderStatus === 'preparing' ? 'บาริสต้ากำลังปรุงเครื่องดื่มให้คุณอย่างพิถีพิถัน' : 
-                        activeOrderStatus === 'ready' ? 'เชิญคุณลูกค้ารับสินค้าได้ที่จุดรับเลยครับ' : ''}</p>
-                  </div>
-                  
-                  <div className="status-timeline">
-                    <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
-                    <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
-                    <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
-                    <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
-                  </div>
-                  
-                  <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
-                    <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>สรุปรายการที่คุณสั่ง:</div>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-                      {cart.length > 0 ? cart.map((item, idx) => (
-                        <div key={idx} style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                          <div style={{width: '40px', height: '40px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                            {item.imageUrl ? <img src={item.imageUrl} style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : <span style={{fontSize: '1.2rem'}}>{item.emoji}</span>}
-                          </div>
-                          <div style={{flex: 1, fontSize: '0.9rem', fontWeight: 600}}>
-                            {item.name} <small style={{color: 'var(--slate-400)'}}>x{item.quantity}</small>
-                          </div>
-                          <div style={{fontWeight: 700}}>฿{item.price * item.quantity}</div>
-                        </div>
-                      )) : <p style={{textAlign:'center', fontSize:'0.8rem', opacity:0.5}}>กำลังโหลดรายการ...</p>}
-                    </div>
-                    <div style={{marginTop: '15px', paddingTop: '15px', borderTop: '1px dashed var(--slate-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                      <span style={{fontWeight: 700, color: 'var(--slate-500)'}}>ยอดรวมทั้งสิ้น</span>
-                      <strong style={{color: 'var(--primary)', fontSize: '1.2rem'}}>฿{cartTotal}</strong>
-                    </div>
-                  </div>
-
-                  <button className="btn btn-dark" style={{width:'100%', marginTop:'30px', padding:'15px', borderRadius:'15px'}} onClick={() => { clearSession(); }}>สั่งออเดอร์ใหม่</button>
-                </div>
-              )}
             </div>
-            {checkoutStep !== 'status' && cart.length > 0 && (
+            {cart.length > 0 && (
               <div className="cart-footer"><div className="cart-summary-block"><div className="summary-info"><span style={{fontWeight:700, color:'#64748b'}}>ยอดชำระทั้งหมด</span><span className="summary-value">฿{cartTotal}</span></div><div className="btn-group">
                 {checkoutStep === 'cart' && <button className="checkout-button" onClick={() => setCheckoutStep('details')}>ไปที่ข้อมูลจัดส่ง</button>}
                 {checkoutStep === 'details' && (<><button className="btn-back" style={{justifyContent:'center'}} onClick={() => setCheckoutStep('cart')}>ย้อนกลับ</button><button className="checkout-button" style={{flex:2}} onClick={createPendingOrder}>ชำระเงิน</button></>)}
                 {checkoutStep === 'payment' && (<button className="btn-cancel" onClick={() => { setCheckoutStep('details'); }}>ยกเลิกรายการ</button>)}
               </div></div></div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isTrackingOpen && (
+        <div className={`cart-overlay ${isTrackingClosing ? 'exit' : ''}`} onClick={closeTracking}>
+          <div className={`cart-drawer ${isTrackingClosing ? 'exit' : ''}`} onClick={e => e.stopPropagation()}>
+            <div className="cart-header"><h2>ติดตามออเดอร์</h2><button className="close-cart" onClick={closeTracking}>✕</button></div>
+            <div className="cart-content">
+              <div className="status-step">
+                <div className="status-hero">
+                  <div className="dragon-pulse"><img src="/assets/logo.png" style={{width: '80px', height: '80px', objectFit: 'contain'}} alt="logo" /></div>
+                  <h3>{activeOrderStatus === 'waiting' ? 'ส่งข้อมูลการโอนเรียบร้อย' : 
+                       activeOrderStatus === 'preparing' ? 'กำลังจัดเตรียมสินค้า' : 
+                       activeOrderStatus === 'ready' ? 'สินค้าทำเสร็จแล้ว!' : 'ได้รับคำสั่งซื้อแล้ว'}</h3>
+                  <p>{activeOrderStatus === 'waiting' ? 'รอแอดมินตรวจสอบยอดเงินสักครู่ครับ' : 
+                      activeOrderStatus === 'preparing' ? 'บาริสต้ากำลังปรุงเครื่องดื่มให้คุณอย่างพิถีพิถัน' : 
+                      activeOrderStatus === 'ready' ? 'เชิญคุณลูกค้ารับสินค้าได้ที่จุดรับเลยครับ' : ''}</p>
+                </div>
+                
+                <div className="status-timeline">
+                  <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>1</span> <div>ได้รับคำสั่งซื้อ</div></div>
+                  <div className={`step ${['waiting', 'preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>2</span> <div>ตรวจสอบยอดเงิน</div></div>
+                  <div className={`step ${['preparing', 'ready'].includes(activeOrderStatus) ? 'active' : ''}`}><span>3</span> <div>กำลังจัดเตรียมสินค้า</div></div>
+                  <div className={`step ${activeOrderStatus === 'ready' ? 'active' : ''}`}><span>4</span> <div>สินค้าพร้อมรับ</div></div>
+                </div>
+
+                <div className="order-summary-status" style={{marginTop: '30px', textAlign: 'left', background: 'var(--slate-50)', padding: '20px', borderRadius: '20px'}}>
+                  <div style={{fontSize: '0.85rem', fontWeight: 800, marginBottom: '15px', color: 'var(--slate-500)', textAlign: 'center'}}>สรุปรายการล่าสุด:</div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                    <div style={{fontWeight: 800, textAlign: 'center', color: 'var(--primary)', fontSize: '1.2rem'}}>ออเดอร์ #{activeOrderId}</div>
+                  </div>
+                </div>
+
+                <button className="btn btn-dark" style={{width:'100%', marginTop:'30px', padding:'15px', borderRadius:'15px'}} onClick={() => { closeTracking(); clearSession(); }}>สั่งออเดอร์ใหม่</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
