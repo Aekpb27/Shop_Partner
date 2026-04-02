@@ -1417,15 +1417,21 @@
             
             showToast('กำลังอัปโหลดรูปภาพ...', 'info');
             const fileExt = file.name.split('.').pop();
-            // 📁 เปลี่ยนมาใช้โฟลเดอร์ slips ตามที่คุณตั้งค่าไว้
             const fileName = `slips/prod-${Date.now()}.${fileExt}`;
 
             try {
+                // 🚀 เพิ่ม contentType เพื่อความเสถียรในการอัปโหลด
                 const { data, error } = await supabaseClient.storage
                     .from('product-images')
-                    .upload(fileName, file);
+                    .upload(fileName, file, {
+                        contentType: file.type,
+                        upsert: true
+                    });
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase Upload Error:', error);
+                    throw new Error(error.message || 'Unknown storage error');
+                }
 
                 const { data: urlData } = supabaseClient.storage
                     .from('product-images')
@@ -1435,6 +1441,7 @@
                 document.getElementById('modal-preview').innerHTML = `<img src="${urlData.publicUrl}">`;
                 showToast('อัปโหลดรูปภาพสำเร็จ');
             } catch (e) {
+                console.error('Upload Process Error:', e);
                 showToast('อัปโหลดล้มเหลว: ' + e.message, 'error');
             }
         }
@@ -1560,7 +1567,7 @@
                                     <div style="font-weight:800;font-size:0.9rem">${p.name}</div>
                                     <div style="font-size:0.7rem;color:var(--slate-500)">฿${p.price} • ${p.category}</div>
                                 </div>
-                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('products','${p.id}')">🗑️</button>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('products','${p.id}')"><img src="/assets/bin.png" style="width: 18px; height: 18px; object-fit: contain;" alt="delete"></button>
                             </div>
                         </div>`).join('');
                 }
@@ -1579,7 +1586,7 @@
                             </div>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn" style="background: var(--slate-50); color: var(--dark); padding: 8px 12px; font-size: 0.75rem;" onclick="event.stopPropagation(); showQrModal('${p.id}', '${p.name}')">QR Code</button>
-                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('partners','${p.id}')">🗑️</button>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('partners','${p.id}')"><img src="/assets/bin.png" style="width: 18px; height: 18px; object-fit: contain;" alt="delete"></button>
                             </div>
                         </div>
                     </div>`).join('');
@@ -1594,7 +1601,7 @@
                                     <div class="drag-handle" style="cursor:grab">☰</div>
                                     <div><div style="font-weight:800;font-size:0.95rem">${c.name}</div></div>
                                 </div>
-                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('categories','${c.id}')">🗑️</button>
+                                <button class="btn btn-del" style="padding:8px" onclick="event.stopPropagation(); deleteItem('categories','${c.id}')"><img src="/assets/bin.png" style="width: 18px; height: 18px; object-fit: contain;" alt="delete"></button>
                             </div>
                         </div>`).join('');
 
