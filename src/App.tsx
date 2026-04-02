@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-rout
 import './App.css'
 import { supabase } from './supabaseClient'
 
+console.log("Dragonz Cha: JS Bundle Executing...");
+
 // --- Interfaces ---
 interface Partner { id: string; name: string; thai_name?: string; logo?: string; promptpay_id?: string; category_names?: string[]; }
 interface Product { id: number; name: string; price: number; emoji: string; category: string; imageUrl?: string; }
