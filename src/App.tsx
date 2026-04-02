@@ -937,7 +937,7 @@ function App() {
   if (loading) return (
     <div className="loading-screen" style={{flexDirection: 'column', gap: '20px'}}>
       <img src="/assets/logo.png" style={{width: '100px', height: '100px', objectFit: 'contain', animation: 'dragonPulse 2s infinite'}} alt="logo" />
-      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>Dragonz Cha...</div>
+      <div style={{fontWeight: 800, letterSpacing: '-1px'}}>กำลังเตรียมความอร่อย...</div>
     </div>
   );
 
